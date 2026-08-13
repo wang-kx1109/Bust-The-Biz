@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>餐饮大侦探 · 奶茶店避坑诊断</title>
+<!--
+  本Demo仅供玩法验证和学习参考，所有角色、场景、数据均为虚构，不涉及任何商业用途
+  游戏名：《餐饮大侦探》 玩法：模拟"创业避坑直播间"的互动诊断游戏
+-->
+<style>
+  :root{
+    --bg:#1a1a2e;
+    --bg2:#16213e;
+    --accent:#e94560;
+    --green:#16c79a;
+    --gold:#f5c518;
+    --text:#eaeaf2;
+    --muted:#9aa0b8;
+    --glass:rgba(255,255,255,0.08);
+    --glass-border:rgba(255,255,255,0.14);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(circle at 50% 0%, #23234a 0%, var(--bg) 60%);
+    color:var(--text);
+    display:flex;justify-content:center;
+  }
+  /* 手机容器：模拟375px直播间竖屏 */
+  #app{
+    width:100%;max-width:420px;min-height:100vh;
+    display:flex;flex-direction:column;
+    background:var(--bg);
+    box-shadow:0 0 40px rgba(0,0,0,0.6);
+    position:relative;overflow:hidden;
+  }
+
+  /* ---------- 顶部 HUD：直播状态 + 耐心值 ---------- */
+  #hud{
+    position:sticky;top:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px;
+    background:rgba(22,33,62,0.85);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--glass-border);
+  }
+  .live{
+    display:flex;align-items:center;gap:6px;
+    background:var(--accent);padding:3px 8px;border-radius:20px;
+    font-size:11px;font-weight:700;color:#fff;
+  }
+  .live .dot{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .hud-score{font-size:12px;color:var(--muted);}
+  .hearts{font-size:15px;letter-spacing:2px;line-height:1;}
+  .heart{transition:transform .2s;}
+  .heart.lost{filter:grayscale(1);opacity:.4;}
+
+  /* ---------- 通用卡片 / 毛玻璃 ---------- */
+  .card{
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    border-radius:16px;
+    backdrop-filter:blur(8px);
+    padding:16px;
+    margin:12px;
+  }
+  .btn{
+    display:inline-block;width:100%;
+    padding:13px;border:none;border-radius:12px;
+    background:linear-gradient(135deg,#e94560,#c23152);
+    color:#fff;font-size:15px;font-weight:700;cursor:pointer;
+    transition:transform .1s, opacity .2s;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn.ghost{background:transparent;border:1px solid var(--glass-border);color:var(--text);}
+  .btn.green{background:linear-gradient(135deg,#16c79a,#0fa77f);}
+  .title{font-size:20px;font-weight:800;text-align:center;margin:6px 0;}
+  .subtitle{font-size:12px;color:var(--muted);text-align:center;}
+
+  /* ---------- 内容区 ---------- */
+  #stage-wrap{flex:1;overflow-y:auto;padding-bottom:20px;}
+  .stage{display:none;}
+  .stage.active{display:block;animation:fadeIn .3s;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* ---------- 封面 ---------- */
+  #stage-cover .cover-hero{
+    text-align:center;padding:40px 20px 10px;
+  }
+  .cover-emoji{font-size:64px;animation:float 3s ease-in-out infinite;}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  .cover-badge{
+    display:inline-block;margin-top:12px;
+    background:var(--glass);border:1px solid var(--glass-border);
+    padding:6px 14px;border-radius:20px;font-size:12px;color:var(--gold);
+  }
+
+  /* ---------- 连麦审问：直播间视频窗 ---------- */
+  .video-win{
+    position:relative;margin:12px;border-radius:16px;overflow:hidden;
+    background:#0f1630;border:1px solid var(--glass-border);
+    aspect-ratio:4/3;
+  }
+  .video-win .bg{
+    position:absolute;inset:0;
+    background:radial-gradient(circle at 30% 40%, #2c2c55, #14142b);
+  }
+  .video-win .shopkeeper{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:110px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.5));
+    animation:shake .5s infinite;
+  }
+  /* 店主"拿手机转圈"晃动效果 */
+  @keyframes shake{
+    0%{transform:translate(0,0) rotate(0)}
+    25%{transform:translate(4px,-6px) rotate(-3deg)}
+    50%{transform:translate(-4px,3px) rotate(2deg)}
+    75%{transform:translate(3px,6px) rotate(-2deg)}
+    100%{transform:translate(0,0) rotate(0)}
+  }
+  .video-win .rec{
+    position:absolute;top:10px;left:10px;
+    font-size:10px;color:#fff;background:rgba(0,0,0,.5);
+    padding:3px 8px;border-radius:6px;
+  }
+  .video-win .avatar{
+    position:absolute;bottom:10px;left:10px;
+    width:44px;height:44px;border-radius:50%;
+    background:var(--accent);display:flex;align-items:center;justify-content:center;
+    font-size:24px;border:2px solid #fff;
+  }
+  .video-win .cam-hint{
+    position:absolute;bottom:14px;right:12px;font-size:11px;color:var(--muted);
+  }
+
+  /* ---------- 对话气泡 ---------- */
+  .bubble{
+    position:relative;background:#242448;border:1px solid var(--glass-border);
+    border-radius:12px;padding:12px 14px;margin:0 12px 12px;font-size:14px;line-height:1.6;
+  }
+  .bubble::after{
+    content:"";position:absolute;left:20px;top:-8px;
+    border:8px solid transparent;border-bottom-color:#242448;border-top:none;
+  }
+  .bubble .who{font-size:11px;color:var(--gold);font-weight:700;margin-bottom:4px;}
+
+  /* ---------- 360环视缩略图 ---------- */
+  .env-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 12px;}
+  .env-item{
+    position:relative;background:var(--glass);border:1px solid var(--glass-border);
+    border-radius:14px;padding:14px 10px;text-align:center;cursor:pointer;
+    transition:border .2s, transform .1s;
+  }
+  .env-item:active{transform:scale(.96);}
+  .env-item .icon{font-size:38px;display:block;margin-bottom:6px;}
+  .env-item .label{font-size:12px;line-height:1.4;}
+  .env-item.saved{border-color:var(--green);}
+  .env-item.saved::after{
+    content:"✓ 已存";position:absolute;top:6px;right:6px;
+    font-size:10px;color:#fff;background:var(--green);border-radius:8px;padding:2px 6px;
+  }
+  .clue-count{text-align:center;font-size:12px;color:var(--muted);margin:10px 0;}
+
+  /* ---------- 选项按钮 ---------- */
+  .opts{display:flex;flex-direction:column;gap:10px;margin:0 12px;}
+  .opt{
+    text-align:left;padding:13px 14px;border-radius:12px;
+    background:var(--glass);border:1px solid var(--glass-border);
+    color:var(--text);font-size:14px;cursor:pointer;transition:all .15s;
+  }
+  .opt:active{transform:scale(.98);}
+  .opt.correct{background:rgba(22,199,154,.25);border-color:var(--green);}
+  .opt.wrong{background:rgba(233,69,96,.25);border-color:var(--accent);}
+  .opt:disabled{cursor:not-allowed;}
+
+  .feedback{
+    margin:10px 12px;padding:12px;border-radius:12px;font-size:14px;text-align:center;
+    animation:fadeIn .2s;
+  }
+  .feedback.ok{background:rgba(22,199,154,.2);color:var(--green);}
+  .feedback.no{background:rgba(233,69,96,.2);color:#ff8598;}
+
+  /* ---------- 找茬：店铺俯视图 ---------- */
+  .shop{
+    position:relative;margin:12px;border-radius:16px;overflow:hidden;
+    background:#23233f;border:2px solid var(--glass-border);
+    height:420px;
+  }
+  .shop .zone{position:absolute;text-align:center;font-size:11px;color:var(--muted);}
+  .shop .zone .big{font-size:34px;display:block;}
+  .zone-door{top:8px;left:10px;right:10px;height:70px;background:#2c2c55;border-radius:10px;padding-top:6px;}
+  .zone-bar{top:92px;left:10px;width:48%;height:76px;background:#33335f;border-radius:10px;padding-top:6px;}
+  .zone-cash{top:92px;right:10px;width:40%;height:76px;background:#33335f;border-radius:10px;padding-top:6px;}
+  .zone-seat{top:184px;left:10px;right:10px;height:120px;background:#2a2a52;border-radius:10px;padding-top:8px;}
+  .zone-kitchen{bottom:8px;left:10px;right:10px;height:84px;background:#25253f;border-radius:10px;padding-top:6px;}
+  .tables{display:flex;gap:8px;justify-content:center;margin-top:8px;}
+  .table{width:46px;height:34px;background:#4a4a78;border-radius:8px;font-size:16px;display:flex;align-items:center;justify-content:center;}
+  .flaw-mark{
+    position:absolute;width:34px;height:34px;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:16px;font-weight:900;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;z-index:5;animation:glow 1.4s infinite;
+    box-shadow:0 0 0 0 rgba(233,69,96,.5);
+  }
+  .flaw-mark.found{background:var(--green);animation:none;}
+  @keyframes glow{
+    0%{box-shadow:0 0 0 0 rgba(233,69,96,.5)}
+    70%{box-shadow:0 0 0 12px rgba(233,69,96,0)}
+    100%{box-shadow:0 0 0 0 rgba(233,69,96,0)}
+  }
+  .f1{top:20px;right:20px;}
+  .f2{bottom:30px;left:50%;transform:translateX(-50%);}
+  .f3{bottom:130px;right:30px;}
+
+  /* ---------- 数据面板表格 ---------- */
+  .panel{width:100%;border-collapse:collapse;font-size:13px;}
+  .panel th,.panel td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--glass-border);}
+  .panel th{color:var(--muted);font-weight:500;font-size:12px;}
+  .panel td.num{font-family:ui-monospace,monospace;}
+  .panel .bad{color:var(--accent);font-weight:700;}
+
+  /* ---------- 连线阶段 ---------- */
+  .link-area{
+    position:relative;margin:12px;min-height:420px;
+  }
+  .link-col{position:absolute;top:0;bottom:0;width:44%;display:flex;flex-direction:column;gap:14px;justify-content:space-around;}
+  .link-col.left{left:0;}
+  .link-col.right{right:0;}
+  .link-card{
+    background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;
+    padding:12px;font-size:13px;line-height:1.4;cursor:pointer;text-align:center;
+    transition:all .15s;min-height:64px;display:flex;align-items:center;justify-content:center;
+  }
+  .link-card.selected{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold);}
+  .link-card.locked{border-color:var(--green);opacity:.95;cursor:default;}
+  .link-card.done-left{background:rgba(22,199,154,.18);}
+  #link-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+
+  /* ---------- 急救 ---------- */
+  .rescue-list{display:flex;flex-direction:column;gap:12px;margin:0 12px;}
+  .rescue-item{
+    display:flex;gap:12px;align-items:center;padding:14px;border-radius:12px;
+    background:var(--glass);border:1px solid var(--glass-border);cursor:pointer;
+    font-size:14px;transition:all .15s;
+  }
+  .rescue-item .tag{
+    flex:none;width:28px;height:28px;border-radius:8px;background:var(--accent);
+    color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;
+  }
+  .rescue-item.ok{background:rgba(22,199,154,.25);border-color:var(--green);}
+  .rescue-item.no{background:rgba(233,69,96,.2);border-color:var(--accent);}
+  .rescue-item:disabled{cursor:not-allowed;}
+
+  /* ---------- 结算 ---------- */
+  .report-head{text-align:center;padding:20px 16px 6px;}
+  .report-score{font-size:52px;font-weight:900;color:var(--gold);}
+  .report-title{font-size:16px;margin-top:4px;}
+  .achieve{
+    display:inline-block;margin-top:10px;padding:8px 18px;border-radius:24px;
+    background:linear-gradient(135deg,#f5c518,#e09b00);color:#3a2a00;font-weight:800;font-size:16px;
+  }
+  .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px;}
+  .stat{background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:14px;text-align:center;}
+  .stat .k{font-size:11px;color:var(--muted);}
+  .stat .v{font-size:22px;font-weight:800;margin-top:4px;}
+  .stat .v.loss{color:var(--accent);}
+
+  /* ---------- 敲锣动画 ---------- */
+  #bell{
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    font-size:90px;z-index:100;pointer-events:none;display:none;
+  }
+  #bell.play{display:block;animation:bellRing .9s ease-out;}
+  @keyframes bellRing{
+    0%{transform:translate(-50%,-50%) scale(0) rotate(-40deg);opacity:0;}
+    25%{transform:translate(-50%,-50%) scale(1.5) rotate(15deg);opacity:1;}
+    50%{transform:translate(-50%,-50%) scale(1.1) rotate(-12deg);}
+    75%{transform:translate(-50%,-50%) scale(1.3) rotate(8deg);}
+    100%{transform:translate(-50%,-50%) scale(1) rotate(0);opacity:0;}
+  }
+
+  /* ---------- 弹窗 ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:90;
+    display:none;align-items:center;justify-content:center;padding:20px;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    width:100%;max-width:340px;background:#22223f;border:1px solid var(--glass-border);
+    border-radius:18px;padding:20px;animation:pop .2s;
+  }
+  @keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+  .modal h3{margin-bottom:10px;font-size:17px;}
+  .modal p{font-size:14px;line-height:1.7;color:#cfd3e6;margin-bottom:14px;}
+  .modal .btn{margin-top:4px;}
+
+  .section-hint{font-size:12px;color:var(--muted);text-align:center;margin:6px 0;}
+  .continue{margin:14px 12px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ 顶部 HUD ============ -->
+  <header id="hud">
+    <div class="live"><span class="dot"></span> LIVE</div>
+    <div class="hud-score">得分 <span id="hud-score">0</span></div>
+    <div class="hearts" id="hearts"></div>
+  </header>
+
+  <!-- 敲锣反馈层 -->
+  <div id="bell">🔔</div>
+
+  <div id="stage-wrap">
+
+    <!-- ============ 封面 ============ -->
+    <section class="stage active" id="stage-cover">
+      <div class="cover-hero">
+        <div class="cover-emoji">🕵️</div>
+        <div class="title">餐饮大侦探</div>
+        <div class="subtitle">模拟"创业避坑直播间" · 互动诊断游戏</div>
+        <div class="cover-badge">👨‍🍳 本期嘉宾：糊涂店主 · 奶茶店</div>
+      </div>
+      <div class="card">
+        <p style="font-size:13px;line-height:1.8;color:#cfd3e6;">
+          🎙️ 你是直播间里的<b>侦探主播</b>，今天来了一位"月月亏本还在硬扛"的奶茶店老板。<br>
+          🕵️ 连麦审问 → 🔍 找茬 → 🔗 连线 → 🚑 急救，帮他找出<b>致命错误</b>。<br>
+          ❤️ 你有 <b>5 点耐心值</b>，选错或看走眼都会掉，掉光就诊断失败！
+        </p>
+      </div>
+      <div class="continue">
+        <button class="btn" onclick="startGame()">🔴 进入直播间</button>
+      </div>
+      <div class="section-hint">仅供玩法验证 · 数据与角色均为虚构</div>
+    </section>
+
+    <!-- ============ 第一阶段：连麦审问 ============ -->
+    <section class="stage" id="stage-ask">
+      <div id="ask-content"></div>
+    </section>
+
+    <!-- ============ 第二阶段：找茬 ============ -->
+    <section class="stage" id="stage-find">
+      <div class="title" style="font-size:17px;">🔍 找茬 · 奶茶店俯视图</div>
+      <div class="subtitle">点击 ❓ 标记，揪出致命错误</div>
+      <div class="shop" id="shop">
+        <div class="zone zone-door">🚪 <span class="big">招牌「好喝到爆奶茶」</span>门口</div>
+        <div class="zone zone-bar">🍹 <span class="big">🧋</span>吧台</div>
+        <div class="zone zone-cash">💰 <span class="big">💵</span>收银台</div>
+        <div class="zone zone-seat">🪑 就餐区
+          <div class="tables"><div class="table">🪑</div><div class="table">🪑</div><div class="table">🪑</div></div>
+        </div>
+        <div class="zone zone-kitchen">🍳 <span class="big">🧊</span>后厨 · 冰箱</div>
+
+        <!-- 三个错误点标记 -->
+        <div class="flaw-mark f1" id="flaw-rent" onclick="openFlaw('rent')">❓</div>
+        <div class="flaw-mark f2" id="flaw-food" onclick="openFlaw('food')">❓</div>
+        <div class="flaw-mark f3" id="flaw-labor" onclick="openFlaw('labor')">❓</div>
+      </div>
+
+      <div class="card">
+        <div class="subtitle" style="margin-bottom:8px;">📊 店铺数据面板</div>
+        <table class="panel">
+          <tr><th>项目</th><th>数值</th><th>同地段正常值</th></tr>
+          <tr><td>月租金</td><td class="num" id="data-rent">???</td><td>2.5万</td></tr>
+          <tr><td>食材成本率</td><td class="num" id="data-food">???</td><td>≤35%</td></tr>
+          <tr><td>人工</td><td class="num" id="data-labor">???</td><td>4人</td></tr>
+        </table>
+      </div>
+
+      <div class="continue">
+        <button class="btn" id="find-next" onclick="goStage('link')" disabled>进入连线阶段 →</button>
+      </div>
+    </section>
+
+    <!-- ============ 第三阶段：连线 ============ -->
+    <section class="stage" id="stage-link">
+      <div class="title" style="font-size:17px;">🔗 连线 · 错误配对</div>
+      <div class="subtitle">先点左边「原因」，再点右边「后果」</div>
+      <div class="link-area" id="link-area">
+        <canvas id="link-canvas"></canvas>
+        <div class="link-col left" id="link-left"></div>
+        <div class="link-col right" id="link-right"></div>
+      </div>
+      <div class="continue">
+        <button class="btn" id="link-next" onclick="goStage('rescue')" disabled>进入急救阶段 →</button>
+      </div>
+    </section>
+
+    <!-- ============ 第四阶段：急救 ============ -->
+    <section class="stage" id="stage-rescue">
+      <div class="title" style="font-size:17px;">🚑 急救 · 最后抉择</div>
+      <div class="bubble"><div class="who">👨‍🍳 店主</div>侦探！那我到底该怎么办？我已经投进去一百多万了，实在不甘心啊……</div>
+      <div class="rescue-list" id="rescue-list"></div>
+      <div class="continue">
+        <button class="btn" id="rescue-next" onclick="goStage('result')" disabled>查看诊断报告 →</button>
+      </div>
+    </section>
+
+    <!-- ============ 第五阶段：结算 ============ -->
+    <section class="stage" id="stage-result">
+      <div id="result-content"></div>
+    </section>
+
+    <!-- ============ 诊断失败 ============ -->
+    <section class="stage" id="stage-fail">
+      <div class="cover-hero">
+        <div class="cover-emoji">💀</div>
+        <div class="title">诊断失败</div>
+        <div class="subtitle">你的耐心值已归零，被店主带偏了节奏</div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div style="font-size:44px;margin-bottom:6px;">🐷</div>
+        <p style="font-size:14px;line-height:1.8;color:#cfd3e6;">
+          店主喜滋滋地继续硬扛，预计全年净亏 <b style="color:var(--accent);font-size:18px;">180万</b>。<br>
+          创业不是靠头铁，及时止损才是真本事。
+        </p>
+      </div>
+      <div class="continue">
+        <button class="btn" onclick="restart()">🔄 重新诊断</button>
+      </div>
+    </section>
+
+  </div><!-- /stage-wrap -->
+</div><!-- /app -->
+
+<!-- 通用弹窗 -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+/* =====================================================================
+   数据定义（全部硬编码）
+   ===================================================================== */
+
+// 360 环视的 4 张环境线索
+const ENV_CLUES = [
+  { id:'starbucks', icon:'🏪', label:'隔壁瑞幸', desc:'同品类强敌，客流被分流' },
+  { id:'road',      icon:'🚧', label:'门口修路', desc:'施工挡路，外卖骑手都绕道' },
+  { id:'office',    icon:'🏢', label:'写字楼搬空', desc:'目标客群（白领）流失' },
+  { id:'waimai',    icon:'🛵', label:'外卖单稀少', desc:'线上渠道几乎没做起来' },
+];
+
+// 夺命三连问：含糊回答 + 三选一（correct 为真实数据）
+const QUESTIONS = [
+  {
+    id:'rent',
+    ask:'老板，你这店一个月租金到底多少？',
+    vague:'“租金啊……五万八，不过这里面含着转让费和物业费，摊下来其实不贵，两万出头吧！”',
+    options:[
+      { label:'2.5万/月', correct:false, reveal:'同地段正常价才 2.5万，你被宰了' },
+      { label:'5.8万/月', correct:true,  reveal:'真实租金 5.8万/月，严重偏高' },
+      { label:'8万/月',   correct:false, reveal:'没有8万，但你报的5.8万也不对' },
+    ],
+  },
+  {
+    id:'sales',
+    ask:'那你一天营业额能做多少？',
+    vague:'“生意好的时候一天能卖八千，平常也有五六千，特别稳定的！”',
+    options:[
+      { label:'3000元/日', correct:true,  reveal:'真实日均流水只有 3000元' },
+      { label:'6000元/日', correct:false, reveal:'你在吹牛，实际没这么多' },
+      { label:'8000元/日', correct:false, reveal:'那是你的"理想值"，不是真实' },
+    ],
+  },
+  {
+    id:'labor',
+    ask:'雇了几个人？人工成本多少？',
+    vague:'“就雇了四个人，都是自家亲戚，给点零花钱就行了～”',
+    options:[
+      { label:'4人', correct:false, reveal:'亲戚也发工资，不止4个' },
+      { label:'6人', correct:false, reveal:'你再想想后厨挤了几个？' },
+      { label:'8人', correct:true,  reveal:'实际8人，月人工2.4万，严重冗余' },
+    ],
+  },
+];
+
+// 找茬：三个致命错误
+const FLAWS = {
+  rent:{ name:'租金过高', mark:'f1', desc:'月租金 5.8万，而同一地段正常价只有 2.5万，多掏了 3.3万/月。', data:'5.8万' },
+  food:{ name:'食材成本率超标', mark:'f2', desc:'食材成本占到 45%，正常应控制在 35% 以内，每卖一杯都在贴钱。', data:'45%' },
+  labor:{ name:'人工冗余', mark:'f3', desc:'实际 8 个人（月薪 2.4万），正常 4 人足够，每月白扔 1.2万。', data:'8人' },
+};
+
+// 连线：错误原因 -> 错误后果（正确配对）
+const LINK_PAIRS = [
+  { from:'rent',  to:'rent',   left:'💰 租金过高', right:'每天要卖 300 杯才回本' },
+  { from:'food',  to:'food',   left:'🥩 食材成本超标', right:'每卖一杯净亏 2 元' },
+  { from:'labor', to:'labor',  left:'👥 人工冗余', right:'每月白扔 1.2 万' },
+];
+
+// 急救：三个补救方案
+const RESCUE = [
+  { tag:'A', label:'加大营销投入，砸钱引流', correct:false, why:'成本已经失控，再砸广告只会亏得更快' },
+  { tag:'B', label:'找房东谈降租，再撑一年', correct:false, why:'租金只是问题之一，结构性问题没解决' },
+  { tag:'C', label:'及时转让止损，保住现金流', correct:true, why:'正确！止损离场，留得青山在' },
+];
+
+// 成就称号（按最终得分区间）
+function achievement(score){
+  if(score >= 10) return '🏆 避坑天花板';
+  if(score >= 7)  return '🧠 人间清醒';
+  if(score >= 4)  return '🏛️ 两江总督';
+  if(score >= 1)  return '☁️ 云开店选手';
+  return '🐷 店主的同伙';
+}
+
+/* =====================================================================
+   游戏状态
+   ===================================================================== */
+const state = {
+  stage:'cover',        // 当前阶段
+  askStep:0,            // 审问子步骤 0连接 1环视 2-4三连问 5老王
+  patience:5,           // 耐心值
+  score:0,              // 总分
+  askCorrect:0,         // 审问答对数
+  savedClues:[],        // 已保存环境线索
+  foundFlaws:[],        // 已找到的错误
+  connections:[],       // 已正确连线的 {from,to}
+  rescueDone:false,
+  rescueCorrect:false,
+  failed:false,
+};
+
+/* =====================================================================
+   工具函数
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+
+function renderHearts(){
+  let html = '';
+  for(let i=0;i<5;i++){
+    html += `<span class="heart ${i<state.patience?'':'lost'}">❤️</span>`;
+  }
+  $('hearts').innerHTML = html;
+}
+function renderHud(){
+  renderHearts();
+  $('hud-score').textContent = state.score;
+}
+
+function goStage(name){
+  state.stage = name;
+  document.querySelectorAll('.stage').forEach(s=>s.classList.remove('active'));
+  $('stage-'+name).classList.add('active');
+  renderHud();
+  if(name==='ask')   renderAsk();
+  if(name==='find')  renderFind();
+  if(name==='link')  initLink();
+  if(name==='rescue')renderRescue();
+  if(name==='result')renderResult();
+  $('stage-wrap').scrollTop = 0;
+  save();
+}
+
+// 弹窗
+function openModal(html){
+  $('modal').innerHTML = html;
+  $('overlay').classList.add('show');
+}
+function closeModal(){ $('overlay').classList.remove('show'); }
+
+// 敲锣动画
+function bell(){
+  const b = $('bell');
+  b.classList.remove('play');
+  void b.offsetWidth;          // 强制重绘以重启动画
+  b.classList.add('play');
+}
+
+// 扣耐心值，归零则失败
+function losePatience(){
+  state.patience--;
+  renderHearts();
+  save();
+  if(state.patience <= 0){
+    state.failed = true;
+    goStage('fail');
+  }
+}
+
+/* =====================================================================
+   开始 / 重置
+   ===================================================================== */
+function startGame(){
+  resetState();
+  goStage('ask');
+}
+function restart(){
+  localStorage.removeItem('food-detective-save');
+  resetState();
+  goStage('cover');
+}
+function resetState(){
+  Object.assign(state, {
+    stage:'cover', askStep:0, patience:5, score:0, askCorrect:0,
+    savedClues:[], foundFlaws:[], connections:[], rescueDone:false,
+    rescueCorrect:false, failed:false,
+  });
+  renderHud();
+}
+
+/* =====================================================================
+   第一阶段：连麦审问
+   ===================================================================== */
+function renderAsk(){
+  const c = $('ask-content');
+  // 顶部直播间视频窗（恒定）
+  const video = `
+    <div class="video-win">
+      <div class="bg"></div>
+      <div class="shopkeeper">👨‍🍳</div>
+      <div class="rec">● REC 00:12</div>
+      <div class="avatar">🕵️</div>
+      <div class="cam-hint">店主正拿手机转圈…</div>
+    </div>`;
+
+  if(state.askStep === 0){
+    // 连麦接通
+    c.innerHTML = video + `
+      <div class="bubble"><div class="who">👨‍🍳 店主</div>侦探你好！谢谢你连麦帮我看店，我这家奶茶店开了大半年，怎么都不赚钱，你给号号脉？</div>
+      <div class="continue"><button class="btn" onclick="askGo(1)">📞 让店主拿手机转一圈看看</button></div>`;
+  }
+  else if(state.askStep === 1){
+    // 360环视：保存线索
+    let grid = '';
+    ENV_CLUES.forEach(clue=>{
+      const saved = state.savedClues.includes(clue.id);
+      grid += `
+        <div class="env-item ${saved?'saved':''}" onclick="toggleClue('${clue.id}')">
+          <span class="icon">${clue.icon}</span>
+          <span class="label">${clue.label}</span>
+        </div>`;
+    });
+    c.innerHTML = video + `
+      <div class="bubble"><div class="who">👨‍🍳 店主</div>好嘞！我给你转一圈啊，你看看我这地段，绝对黄金位置！</div>
+      <div class="env-grid">${grid}</div>
+      <div class="clue-count">点击卡片收藏线索（最多 3 条）· 已存 ${state.savedClues.length}/3</div>
+      <div class="continue"><button class="btn" onclick="askGo(2)">开始夺命三连问 →</button></div>`;
+  }
+  else if(state.askStep >= 2 && state.askStep <= 4){
+    // 三连问
+    const q = QUESTIONS[state.askStep-2];
+    let opts = '';
+    q.options.forEach((o,i)=>{
+      opts += `<button class="opt" id="opt-${i}" onclick="answerQ(${i})">${o.label}</button>`;
+    });
+    c.innerHTML = video + `
+      <div class="bubble"><div class="who">🕵️ 你（第 ${state.askStep-1} 问）</div>${q.ask}</div>
+      <div class="bubble"><div class="who">👨‍🍳 店主（含糊其辞）</div>${q.vague}</div>
+      <div class="opts">${opts}</div>
+      <div id="q-feedback"></div>`;
+  }
+  else if(state.askStep === 5){
+    // 隔壁老王验证
+    c.innerHTML = video + `
+      <div class="bubble"><div class="who">🕵️ 你</div>我打个电话给隔壁老王，交叉验证一下。</div>
+      <div class="bubble"><div class="who">📞 隔壁老王（电话录音）</div>
+        他呀？一天顶多卖 100 杯，一杯 18 块，流水撑死 <b style="color:var(--gold)">3000 块</b>，哪来的八千！<br>
+        还有啊，我昨天路过瞄了一眼，他后厨挤了 <b style="color:var(--gold)">七八个人</b>，比客人还多！
+      </div>
+      <div class="feedback ok">🔍 发现隐藏矛盾：营业额吹水、人工虚报！</div>
+      <div class="continue"><button class="btn" onclick="goStage('find')">🔍 进入找茬阶段 →</button></div>`;
+  }
+}
+function askGo(step){ state.askStep = step; renderAsk(); save(); }
+
+// 收藏/取消收藏线索（最多3条）
+function toggleClue(id){
+  const i = state.savedClues.indexOf(id);
+  if(i>=0){ state.savedClues.splice(i,1); }
+  else if(state.savedClues.length < 3){ state.savedClues.push(id); }
+  else { openModal(`<h3>📌 线索已满</h3><p>最多收藏 3 条，先取消一条再存新的吧。</p><button class="btn" onclick="closeModal()">知道了</button>`); return; }
+  renderAsk();
+}
+
+// 回答三连问
+function answerQ(i){
+  const q = QUESTIONS[state.askStep-2];
+  const opt = q.options[i];
+  // 锁定所有选项按钮
+  q.options.forEach((_,j)=>{ const b=$('opt-'+j); if(b) b.disabled = true; });
+
+  const fb = $('q-feedback');
+  if(opt.correct){
+    state.score++; state.askCorrect++;
+    $('opt-'+i).classList.add('correct');
+    fb.innerHTML = `<div class="feedback ok">✅ ${opt.reveal}</div>`;
+  } else {
+    $('opt-'+i).classList.add('wrong');
+    q.options.forEach((o,j)=>{ if(o.correct) $('opt-'+j).classList.add('correct'); });
+    fb.innerHTML = `<div class="feedback no">❌ ${opt.reveal}</div>`;
+    losePatience();
+    if(state.failed) return;
+  }
+  renderHud();
+  // 稍后进入下一问
+  setTimeout(()=>{
+    state.askStep++;
+    renderAsk();
+    save();
+  }, 1200);
+}
+
+/* =====================================================================
+   第二阶段：找茬
+   ===================================================================== */
+function renderFind(){
+  // 还原已找到的标记
+  Object.keys(FLAWS).forEach(id=>{
+    const el = $('flaw-'+id);
+    if(el){
+      if(state.foundFlaws.includes(id)){ el.classList.add('found'); el.textContent='✅'; }
+      else { el.classList.remove('found'); el.textContent='❓'; }
+    }
+  });
+  // 还原数据面板
+  $('data-rent').textContent  = state.foundFlaws.includes('rent') ? '5.8万' : '???';
+  $('data-food').textContent  = state.foundFlaws.includes('food') ? '45%' : '???';
+  $('data-labor').textContent = state.foundFlaws.includes('labor') ? '8人' : '???';
+  $('find-next').disabled = state.foundFlaws.length !== 3;
+}
+
+function openFlaw(id){
+  if(state.foundFlaws.includes(id)) return;
+  const f = FLAWS[id];
+  openModal(`
+    <h3>${f.name}</h3>
+    <p>${f.desc}</p>
+    <button class="btn" onclick="confirmFlaw('${id}')">✅ 记下这个错误</button>
+  `);
+}
+
+function confirmFlaw(id){
+  closeModal();
+  if(state.foundFlaws.includes(id)) return;
+  state.foundFlaws.push(id);
+  state.score++;
+  bell();                     // 敲锣反馈
+  renderFind();
+  renderHud();
+  save();
+}
+
+/* =====================================================================
+   第三阶段：连线（Canvas）
+   ===================================================================== */
+let linkSelected = null;      // 当前选中的左侧卡片 id
+let tempLine = null;          // 临时错误连线 {from,to}
+
+function initLink(){
+  linkSelected = null; tempLine = null;
+  const left = $('link-left');
+  const right = $('link-right');
+
+  // 打乱右侧卡片顺序（避免顺序即答案）
+  const shuffled = [...LINK_PAIRS].sort(()=>Math.random()-0.5);
+
+  left.innerHTML = '';
+  right.innerHTML = '';
+  LINK_PAIRS.forEach(p=>{
+    const locked = state.connections.some(c=>c.from===p.from);
+    left.innerHTML += `<div class="link-card ${locked?'locked done-left':''}" data-from="${p.from}" onclick="selectLeft('${p.from}')">${p.left}</div>`;
+  });
+  shuffled.forEach(p=>{
+    const locked = state.connections.some(c=>c.to===p.to);
+    right.innerHTML += `<div class="link-card ${locked?'locked':''}" data-to="${p.to}" onclick="selectRight('${p.to}')">${p.right}</div>`;
+  });
+  $('link-next').disabled = state.connections.length !== 3;
+  // 等布局稳定后绘制
+  setTimeout(drawConnections, 30);
+}
+
+function selectLeft(id){
+  if(state.connections.some(c=>c.from===id)) return; // 已锁定
+  linkSelected = id;
+  document.querySelectorAll('#link-left .link-card').forEach(el=>{
+    el.classList.toggle('selected', el.dataset.from===id);
+  });
+}
+
+function selectRight(id){
+  if(state.connections.some(c=>c.to===id)) return;   // 已锁定
+  if(!linkSelected){ openModal(`<h3>👆 提示</h3><p>请先点击左侧一个「错误原因」。</p><button class="btn" onclick="closeModal()">好</button>`); return; }
+
+  const from = linkSelected;
+  const correct = LINK_PAIRS.find(p=>p.from===from).to === id;
+
+  if(correct){
+    // 正确：锁定并变绿
+    state.connections.push({from, to:id});
+    state.score++;
+    linkSelected = null;
+    bell();
+    initLink();          // 重绘 + 更新锁定态
+    renderHud();
+  } else {
+    // 错误：红线条一闪而过，扣耐心
+    tempLine = {from, to:id};
+    drawConnections();
+    losePatience();
+    if(state.failed) return;
+    setTimeout(()=>{ tempLine=null; linkSelected=null; initLink(); }, 450);
+  }
+  save();
+}
+
+// 绘制连线
+function drawConnections(){
+  const area = $('link-area');
+  const canvas = $('link-canvas');
+  canvas.width = area.clientWidth;
+  canvas.height = area.clientHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const wrapRect = area.getBoundingClientRect();
+  function point(el, side){
+    const r = el.getBoundingClientRect();
+    const y = r.top - wrapRect.top + r.height/2;
+    const x = side==='left' ? r.right - wrapRect.left : r.left - wrapRect.left;
+    return {x, y};
+  }
+
+  function drawLine(from, to, color, dash){
+    ctx.beginPath();
+    const mx = (from.x + to.x)/2;
+    ctx.moveTo(from.x, from.y);
+    ctx.quadraticCurveTo(mx, from.y - 24, to.x, to.y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    if(dash) ctx.setLineDash([6,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 已锁定的正确连线（绿色）
+  state.connections.forEach(c=>{
+    const le = document.querySelector(`#link-left .link-card[data-from="${c.from}"]`);
+    const re = document.querySelector(`#link-right .link-card[data-to="${c.to}"]`);
+    if(le && re) drawLine(point(le,'left'), point(re,'right'), '#16c79a', false);
+  });
+
+  // 选中态虚线（提示）
+  if(linkSelected){
+    const le = document.querySelector(`#link-left .link-card[data-from="${linkSelected}"]`);
+    if(le){
+      // 画到鼠标/暂无，仅高亮起点，跳过
+    }
+  }
+
+  // 临时错误连线（红色）
+  if(tempLine){
+    const le = document.querySelector(`#link-left .link-card[data-from="${tempLine.from}"]`);
+    const re = document.querySelector(`#link-right .link-card[data-to="${tempLine.to}"]`);
+    if(le && re) drawLine(point(le,'left'), point(re,'right'), '#e94560', false);
+  }
+}
+
+window.addEventListener('resize', ()=>{ if(state.stage==='link') drawConnections(); });
+
+/* =====================================================================
+   第四阶段：急救
+   ===================================================================== */
+function renderRescue(){
+  const list = $('rescue-list');
+  list.innerHTML = '';
+  RESCUE.forEach((r,i)=>{
+    list.innerHTML += `
+      <div class="rescue-item" id="rescue-${i}" onclick="chooseRescue(${i})">
+        <div class="tag">${r.tag}</div>
+        <div>${r.label}</div>
+      </div>`;
+  });
+  if(state.rescueDone){
+    RESCUE.forEach((r,i)=>{
+      const el = $('rescue-'+i);
+      if(r.correct) el.classList.add('ok');
+      else if(i === lastRescuePick) el.classList.add('no');
+      el.style.pointerEvents='none';
+    });
+    $('rescue-next').disabled = false;
+  }
+}
+let lastRescuePick = -1;
+
+function chooseRescue(i){
+  if(state.rescueDone) return;
+  state.rescueDone = true;
+  lastRescuePick = i;
+  const r = RESCUE[i];
+
+  // 禁用所有选项
+  RESCUE.forEach((_,j)=>{ $('rescue-'+j).style.pointerEvents='none'; });
+
+  if(r.correct){
+    state.rescueCorrect = true;
+    state.score++;
+    $('rescue-'+i).classList.add('ok');
+    bell();
+  } else {
+    $('rescue-'+i).classList.add('no');
+    losePatience();
+    if(state.failed) return;
+  }
+  // 展示原因
+  openModal(`
+    <h3>${r.correct ? '✅ 选对了' : '❌ 选错了'}</h3>
+    <p>${r.why}</p>
+    <button class="btn ${r.correct?'green':''}" onclick="closeModal()">继续</button>
+  `);
+  $('rescue-next').disabled = false;
+  renderHud();
+  save();
+}
+
+/* =====================================================================
+   第五阶段：结算
+   ===================================================================== */
+function renderResult(){
+  const found = state.foundFlaws.length;
+  const linked = state.connections.length;
+  const rescue = state.rescueCorrect ? 1 : 0;
+
+  // 亏损金额计算：基础 180万 - 挽回金额
+  const recover = found*20 + linked*15 + rescue*25 + state.askCorrect*4 + state.patience*8;
+  const loss = Math.max(0, 180 - recover);
+
+  const ach = achievement(state.score);
+
+  $('result-content').innerHTML = `
+    <div class="report-head">
+      <div class="report-score">${state.score}<span style="font-size:22px;color:var(--muted)">/10</span></div>
+      <div class="report-title">诊断得分</div>
+      <div class="achieve">${ach}</div>
+    </div>
+    <div class="report-grid">
+      <div class="stat"><div class="k">🔍 找到错误</div><div class="v">${found}/3</div></div>
+      <div class="stat"><div class="k">🔗 连线正确</div><div class="v">${linked}/3</div></div>
+      <div class="stat"><div class="k">🚑 急救判断</div><div class="v">${rescue?'✅':'❌'}</div></div>
+      <div class="stat"><div class="k">❤️ 剩余耐心</div><div class="v">${state.patience}</div></div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div class="k" style="font-size:12px;color:var(--muted);">若继续硬扛 · 预计亏损</div>
+      <div style="font-size:40px;font-weight:900;color:var(--accent);">${loss} 万</div>
+      <p style="font-size:13px;line-height:1.7;color:#cfd3e6;margin-top:8px;">
+        ${loss===0 ? '你帮他完美止损，堪称人间清醒！' : '你帮他挽回了 ' + recover + ' 万潜在亏损。'}
+      </p>
+    </div>
+    <div class="continue">
+      <button class="btn green" onclick="shareResult()">📤 分享诊断结果</button>
+    </div>
+    <div class="continue">
+      <button class="btn ghost" onclick="restart()">🔄 再开一局</button>
+    </div>`;
+}
+
+function shareResult(){
+  openModal(`
+    <h3>📤 分享（模拟）</h3>
+    <p>我是「${achievement(state.score)}」，帮糊涂店主诊断出 ${state.foundFlaws.length} 个致命错误、止损 ${Math.max(0,180-(state.foundFlaws.length*20+state.connections.length*15+(state.rescueCorrect?25:0)+state.askCorrect*4+state.patience*8))} 万！你能得几分？</p>
+    <button class="btn" onclick="closeModal()">好的</button>
+  `);
+}
+
+/* =====================================================================
+   存档（localStorage）
+   ===================================================================== */
+function save(){
+  try{ localStorage.setItem('food-detective-save', JSON.stringify(state)); }catch(e){}
+}
+function load(){
+  try{
+    const raw = localStorage.getItem('food-detective-save');
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(s && s.stage && s.stage!=='cover' && s.stage!=='result' && s.stage!=='fail'){
+      Object.assign(state, s);
+      renderHud();
+      goStage(state.stage);
+    }
+  }catch(e){}
+}
+
+/* =====================================================================
+   初始化
+   ===================================================================== */
+renderHud();
+load();
+</script>
+</body>
+</html>
