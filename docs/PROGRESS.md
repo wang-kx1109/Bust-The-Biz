@@ -4,6 +4,27 @@
 
 ## 里程碑
 
+### 2026-08-24 · v0.2 转向「微信小游戏」（Canvas 渲染，2 关全流程）
+**背景**：用户注册的 AppID 类型是小游戏（`wx01973db56f70ae3e`），与旧小程序架构不兼容 → 决定整体迁往小游戏。
+
+**交付**：`minigame/` Canvas 版，逻辑/数据/校验 100% 复用，UI 层重写为 7 个场景。
+
+- 架构：逻辑宽 750 坐标系（与关卡坐标 1:1）、场景路由 router、绘图库 gfx、单帧"测量+绘制+命中"同源
+- 场景：select / ask / find / link / rescue / result / fail 全流程（含隐藏点、敲锣、红闪、成就、分享）
+- 复用：`js/core/state.js`（状态机）+ `js/data/levels.js`（数据）与 miniprogram 互为镜像，sanity deepEqual 防漂移
+- 旧 miniprogram/ 保留为遗留存档，不再维护
+- 校验：node --check 全过；sanity.js 7 项；sanity-game.js 12 项（含场景接口存在性）
+
+**已知提示**：canvas emoji 在 Windows 开发者工具可能黑白/豆腐块 → 以真机为准。
+
+**待办 / 下一步**
+- [ ] 用户真机验证（开发者工具模拟器 + 手机预览扫码），重点：连线对准、隐藏点、emoji 真机显示
+- [ ] 关卡扩容 + 店主差异化话术
+- [ ] 激励视频广告 / Banner（小游戏投放单元）
+- [ ] 音效（wx.createInnerAudioContext，可用 base64 音频数据）
+
+---
+
 ### 2026-08-23 · v0.1 MVP：微信小程序版可玩骨架（2 关）
 **交付**：`miniprogram/` 原生小程序，7 页全流程 + HUD 组件 + 状态机 + 3 个校验脚本。
 

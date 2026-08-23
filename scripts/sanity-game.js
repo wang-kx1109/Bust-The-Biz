@@ -11,7 +11,8 @@
  *  5. 结算退化：全错输入 → loss = baseLoss、最低成就
  * ===================================================================== */
 const assert = require('assert');
-const game = require('../miniprogram/utils/game.js');
+// 小游戏是当前开发重心：校验 minigame 侧的状态机（与 miniprogram 侧同构）
+const game = require('../minigame/js/core/state.js');
 
 let pass = 0;
 function ok(name) {
@@ -162,5 +163,17 @@ assert.strictEqual(r0.loss, 180 - 5 * 8, '零动作 → loss=baseLoss-耐心挽�
 assert.strictEqual(r0.achievement, '🐷 店主的同伙', '最低成就');
 assert.strictEqual(r0.shareText.indexOf('140 万') > -1, true, 'shareText 已插值出止损');
 ok('零动作 → loss=140 / 最低成就 / shareText 插值');
+
+/* ---------- 6. 小游戏场景接口存在性 ---------- */
+console.log('\n[6] 小游戏场景接口');
+const SCENE_NAMES = ['select', 'ask', 'find', 'link', 'rescue', 'result', 'fail'];
+for (const name of SCENE_NAMES) {
+  const scene = require(`../minigame/js/scenes/${name}.js`);
+  assert(typeof scene.render === 'function', `${name} 缺少 render(ctx)`);
+  assert(typeof scene.onTap === 'function', `${name} 缺少 onTap(x, y)`);
+  assert(typeof scene.onEnter === 'function', `${name} 缺少 onEnter()`);
+  if (scene.update !== undefined) assert(typeof scene.update === 'function', `${name}.update 应为函数或无`);
+  ok(`${name}：render/onTap/onEnter 接口齐备`);
+}
 
 console.log(`\n✅ sanity-game.js 逻辑校验通过（${pass} 项）\n`);

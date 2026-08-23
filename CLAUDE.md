@@ -6,49 +6,52 @@
 
 | 路径 | 说明 |
 | :--- | :--- |
-| `miniprogram/` | **微信小程序（当前开发重心）**，原生 JS + WXML + WXSS |
-| `scripts/` | node 一致性校验（在无微信开发者工具环境里代替"能跑"） |
-| `index.html` / `levels.js` | GitHub Pages 原型。⚠️ 因缺 `game.js` 已失效，暂不维护 |
+| `minigame/js/scenes/` | **微信小游戏场景（当前开发重心）**，Canvas 2D 渲染 |
+| `minigame/game.js` / `game.json` | 小游戏入口 + 配置 |
+| `miniprogram/` | ⚠️ **遗留存档**（旧小程序架构，WXML/WXSS，已不维护） |
+| `scripts/` | node 一致性校验 |
+| `index.html` / `levels.js` | GitHub Pages 原型。⚠️ 因缺 `game.js` 已失效，不维护 |
 | `readme.md` | 游戏设计文档（需求/数值/商业化） |
 | `<餐饮大侦探>关卡设计文档.md` | 详细关卡设计 |
 | `docs/PROGRESS.md` | 进度日志 —— **干任何事前先读这里** |
-| `project.config.json` | 开发者工具配置（`miniprogramRoot`、`touristappid`） |
+| `docs/avatar.png` | 小程序/小游戏头像（`node scripts/make-avatar.js` 可再生成） |
+| `project.config.json` | `compileType: "game"`、`appid: wx01973db56f70ae3e`（小游戏） |
 
 ## 校验命令（仓库根目录执行）
 
 ```bash
-node scripts/sanity.js          # 关卡数据完整性 / 坐标 / 隐藏点引用 / 满分公式
-node scripts/sanity-game.js     # 状态机全流程冒烟测试（两关全对/失败/连线语义/结算）
-node scripts/check-templates.js # WXML 绑定 ↔ 页面 data/方法 交叉校验
+node scripts/sanity.js          # 双数据源一致性 / 数据完整性 / 坐标 / 隐藏点 / 满分公式
+node scripts/sanity-game.js     # 状态机全流程冒烟（require minigame 版状态机）+ 场景接口存在性
+node scripts/check-templates.js # 仅对遗留 miniprogram 的 WXML 交叉校验（新开发不涉及）
 node --check <任意 .js>         # JS 语法
 ```
 
-改动任何 `data/ utils/ pages/` 后都应跑一遍上述脚本再提交。
+改动任何 `minigame/ utils/ pages/ data/` 后都应跑一遍上述脚本再提交。
 
-## 小程序架构速览
+## 小游戏架构速览
 
 ```
-miniprogram/
-├── app.js / app.json / app.wxss     # 入口；7 页注册；全局暗色主题；全局注册 hud 组件
-├── components/hud/                  # 顶部 HUD（❤️耐心值 + 得分），所有阶段页复用
-├── data/levels.js                   # 关卡数据（唯一数据源，见"数据源注意"）
-├── utils/game.js                    # 单一状态机：state/progress + 全部 API
-└── pages/
-    ├── select/ 关卡选择（解锁进度）
-    ├── ask/    审问（askStep 0开场/1环视/2-4三问/5老王）
-    ├── find/   找茬（750 坐标→rpx；隐藏错误点 unlockBy）
-    ├── link/   连线（canvas 2d 贝塞尔线）
-    ├── rescue/ 急救（三选一）
-    ├── result/ 结算（得分/成就/止损/下一关解锁）
-    └── fail/   诊断失败（耐心归零）
+minigame/
+├── game.js                  # 入口：主canvas + 主循环(requestAnimationFrame) + 触屏分发 + 分享
+├── game.json                # 竖屏小游戏配置
+└── js/
+    ├── core/
+    │   ├── state.js         # 状态机（结构同步自旧 utils/game.js，wx 隔离，可 node 测）
+    │   ├── router.js        # 场景路由 switchScene / dispatchTap / render
+    │   ├── gfx.js           # 绘图库：圆角/文字换行/按钮/HUD/气泡/toast
+    │   └── layout.js        # 布局（逻辑宽 750，与关卡坐标 1:1）
+    ├── data/levels.js       # 关卡数据（与 miniprogram/data/levels.js 互为镜像）
+    └── scenes/              # 7 个场景：select/ask/find/link/rescue/result/fail
 ```
 
-**状态与导航约定**
-- 页面不改状态：所有逻辑走 `utils/game.js` 的纯函数，页面用 `game.sync(this)` 注入基础视图，再 `setData` 自己的局部视图。
-- 阶段前进用 `wx.redirectTo`，重开/回选关用 `wx.reLaunch`；各页 `onLoad` 以 `game.state.stage` 做守卫，防止深链/回退进入错误阶段。
-- 禁用往 `setData` 传函数；`setData` 只收 `getStateView()` 的纯数据。
+**渲染与交互约定**
+- **逻辑坐标系宽 = 750**，与关卡数据 rpx 坐标 1:1；`layout.SCALE` 缩放绘制。触屏 `wx.onTouchStart` 换算逻辑坐标后派发 `scene.onTap(x, y)`。
+- 场景接口：`{ onEnter(), update(dt,now), render(ctx), onTap(x,y), onExit() }`；切换用 `router.switchScene('xxx')`。
+- **命中即视觉同源**：每个场景 render() 里边测量边绘制边记录按钮/卡片 rect 到 `this.buttons`/`this.optRects` 等，onTap 用最新 rect 做矩形命中——视觉与点击永不漂移。**不要再拆出独立的布局计算函数**。
+- 所有逻辑走 `js/core/state.js` 纯函数；`store.markStage('xxx')` 记录阶段。
+- **Canvas 里 emoji 在 Windows 开发者工具可能黑白/豆腐块，真机正常**——属已知现象，别当成 bug。
 
-**得分与止损**（`utils/game.js :: computeResult`）
+**得分与止损**（`js/core/state.js :: computeResult`）
 ```
 score   = 答对 + 找茬数 + 连线对数 + 急救对(1)
 maxScore = 问数 + 错误数 + 对数 + 1
@@ -57,10 +60,11 @@ loss = max(0, baseLoss − recovered)     // 耐心也是一种"止损贡献"！
 成就称号按 score 命中 result.achievements 档位
 ```
 
-**数据源注意**：`miniprogram/data/levels.js` 移植自根 `levels.js`，唯一结构变更 `interview.neighbor.text`(HTML) → `texts`(纯文本数组)。修改关卡数据应改根文件后同步，并跑 `node scripts/sanity.js`。
+**数据源注意**：关卡数据有两份镜像拷贝（`miniprogram/data/levels.js` 与 `minigame/js/data/levels.js`），改动必须同步（sanity.js 会 deepEqual 校验）。根 `levels.js` 是 HTML 原型遗留。
 
 ## 平台限制备忘
 
-- WXSS **不使用 CSS 变量**（部分基础库不支持）→ 全用字面量颜色。
-- 连线 canvas 必须 `fields({node,size})` + dpr 缩放。
+- 小游戏无 WXML/WXSS，全部 Canvas 绘制；无 DOM，不能用 `document/querySelector`。
+- 主 canvas 宽高 = `windowWidth×pixelRatio`，绘制前 `ctx.setTransform(scale,…)`。
+- 存储/分享/音频用 wx 全局 API（`wx.setStorageSync` / `wx.shareAppMessage` / `wx.createInnerAudioContext`）。
 - 下一步计划见 `docs/PROGRESS.md`。

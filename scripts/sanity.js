@@ -14,12 +14,18 @@ const assert = require('assert');
 const path = require('path');
 
 const LEVELS = require(path.join(__dirname, '../miniprogram/data/levels.js'));
+const GAME_LEVELS = require(path.join(__dirname, '../minigame/js/data/levels.js'));
 
 let pass = 0;
 function ok(name) {
   pass++;
   console.log(`  ✓ ${name}`);
 }
+
+/* ---------- 0. 双数据源一致性（miniprogram ↔ minigame） ---------- */
+console.log('\n[0] 双数据源一致性');
+assert.deepStrictEqual(LEVELS, GAME_LEVELS, 'miniprogram/data/levels.js 与 minigame/js/data/levels.js 必须完全一致');
+ok('miniprogram ↔ minigame 两份关卡数据字节级一致（改数据需同步两份）');
 
 /* ---------- 1. 数据完整性 ---------- */
 console.log('\n[1] 数据完整性');
