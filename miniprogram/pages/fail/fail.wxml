@@ -1,0 +1,11 @@
+<view class="fail-wrap">
+  <view class="fail-emoji">💥😤</view>
+  <view class="fail-title">耐心耗尽 · 诊断失败</view>
+  <view class="fail-sub">勇哥摔了耳机……"下一个！"</view>
+  <view class="fail-more">店主还在追问，你的诊断被愤怒地打断了</view>
+</view>
+
+<view class="continue-bar">
+  <button class="btn btn-primary" bindtap="onRetry">🔄 重新诊断这家店</button>
+  <button class="btn btn-ghost" bindtap="onBack">返回关卡选择</button>
+</view>

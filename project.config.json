@@ -1,0 +1,22 @@
+{
+  "description": "餐饮大侦探 · 创业避坑互动诊断小游戏",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "urlCheck": false,
+    "enhance": true,
+    "coverView": true,
+    "autoAudits": false
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.7.8",
+  "appid": "touristappid",
+  "projectname": "Bust-The-Biz",
+  "miniprogramRoot": "miniprogram/",
+  "condition": {}
+}

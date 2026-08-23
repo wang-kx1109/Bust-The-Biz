@@ -1,0 +1,22 @@
+{
+  "pages": [
+    "pages/select/select",
+    "pages/ask/ask",
+    "pages/find/find",
+    "pages/link/link",
+    "pages/rescue/rescue",
+    "pages/result/result",
+    "pages/fail/fail"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#1a1a2e",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "餐饮大侦探",
+    "backgroundColor": "#1a1a2e",
+    "backgroundTextStyle": "light"
+  },
+  "usingComponents": {
+    "hud": "/components/hud/hud"
+  },
+  "sitemapLocation": "sitemap.json"
+}

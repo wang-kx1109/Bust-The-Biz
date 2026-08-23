@@ -1,0 +1,35 @@
+<hud score="{{score}}" hearts="{{patience}}" />
+
+<view class="rescue-head">
+  <view class="rescue-title">🚑 急救 · 开处方</view>
+  <view class="rescue-sub">见过太多坑后，你的一句话可能救回一家店</view>
+</view>
+
+<view class="bubble">
+  <view class="who gold">🧯 店主</view>
+  {{prompt}}
+</view>
+
+<view class="rescue-list">
+  <view
+    wx:for="{{options}}"
+    wx:key="i"
+    class="rescue-item {{item.cls}}"
+    bindtap="onPick"
+    data-i="{{item.i}}"
+  >
+    <view class="r-tag">{{item.tag}}</view>
+    <view class="r-label">{{item.label}}</view>
+  </view>
+</view>
+
+<!-- 结果弹窗 -->
+<view wx:if="{{modalOpen}}" class="overlay">
+  <view class="modal">
+    <view class="m-title">{{chosenCorrect ? '✅ 选对了' : '❌ 选错了'}}</view>
+    <view class="m-desc">{{why}}</view>
+    <view class="m-btns">
+      <button class="btn btn-primary" bindtap="onContinue">查看诊断报告 →</button>
+    </view>
+  </view>
+</view>

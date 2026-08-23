@@ -1,0 +1,48 @@
+/* components/hud/hud.wxss */
+.hud {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 28rpx;
+  background: rgba(22, 33, 62, 0.85);
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.14);
+}
+.hud-left {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+.live {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  background: #e94560;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+.live .dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  animation: hud-pulse 1s infinite;
+}
+@keyframes hud-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.hud-score {
+  font-size: 24rpx;
+  color: #9aa0b8;
+}
+.hearts {
+  font-size: 28rpx;
+  letter-spacing: 4rpx;
+  line-height: 1;
+}

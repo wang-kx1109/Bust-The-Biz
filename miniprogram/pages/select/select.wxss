@@ -1,0 +1,87 @@
+/* pages/select/select.wxss */
+.select-head {
+  text-align: center;
+  padding: 64rpx 40rpx 16rpx;
+}
+.select-emoji {
+  font-size: 112rpx;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-16rpx); }
+}
+.select-title {
+  font-size: 44rpx;
+  font-weight: 800;
+  margin-top: 8rpx;
+}
+
+.level-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  margin: 32rpx 24rpx;
+}
+.level-card {
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+  padding: 32rpx;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 24rpx;
+  transition: transform 0.1s;
+}
+.level-card.locked {
+  opacity: 0.55;
+}
+.level-card.cleared {
+  border-color: #16c79a;
+}
+.level-card:active {
+  transform: scale(0.98);
+}
+.level-emoji {
+  font-size: 76rpx;
+  flex: none;
+}
+.level-info {
+  flex: 1;
+  min-width: 0;
+}
+.level-title {
+  font-size: 32rpx;
+  font-weight: 800;
+}
+.level-sub {
+  font-size: 24rpx;
+  color: #9aa0b8;
+  margin-top: 4rpx;
+}
+.level-meta {
+  font-size: 22rpx;
+  color: #f5c518;
+  margin-top: 12rpx;
+}
+.level-status {
+  font-size: 30rpx;
+  flex: none;
+}
+
+.dev-unlock {
+  text-align: center;
+  margin: 8rpx 0 32rpx;
+}
+.dev-btn {
+  background: none;
+  border: none;
+  color: #9aa0b8;
+  font-size: 24rpx;
+  text-decoration: underline;
+  line-height: inherit;
+  padding: 8rpx 24rpx;
+}
+.dev-btn::after {
+  border: none;
+}

@@ -1,0 +1,28 @@
+<view class="report-head">
+  <view class="report-emoji">🕵️</view>
+  <view class="report-score">{{report.score}}<text class="fsm">/{{report.maxScore}}</text></view>
+  <view class="report-title">诊断得分 · {{levelTitle}}</view>
+  <view class="achieve">{{report.achievement}}</view>
+</view>
+
+<view class="report-grid">
+  <view wx:for="{{stats}}" wx:key="k" class="stat">
+    <view class="s-k">{{item.k}}</view>
+    <view class="s-v">{{item.v}}</view>
+  </view>
+</view>
+
+<view class="card loss-card">
+  <view class="loss-label">若继续硬扛 · 预计亏损</view>
+  <view class="loss-num">{{report.loss}} 万</view>
+  <view class="loss-tip">
+    {{report.loss === 0 ? '你帮他完美止损，堪称人间清醒！' : '你帮他挽回了 ' + report.recoveredTotal + ' 万潜在亏损'}}
+  </view>
+</view>
+
+<view class="continue-bar">
+  <button class="btn btn-green" open-type="share">📤 分享诊断结果</button>
+  <button class="btn btn-primary" bindtap="onRestart">🔄 再开一局</button>
+  <button wx:if="{{nextId}}" class="btn btn-ghost" bindtap="onNext">⬇ 下一关：已解锁</button>
+  <button class="btn btn-ghost" bindtap="onBack">返回关卡选择</button>
+</view>

@@ -1,0 +1,198 @@
+/* pages/ask/ask.wxss — 连麦审问页 */
+
+/* ---------- 视频窗 ---------- */
+.video-win {
+  position: relative;
+  margin: 24rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+  background: #0f1630;
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  height: 480rpx;
+}
+.video-win .v-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 40%, #2c2c55, #14142b);
+}
+.video-win .shopkeeper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 200rpx;
+  filter: drop-shadow(0 10rpx 20rpx rgba(0, 0, 0, 0.5));
+  animation: vshake 0.5s infinite;
+}
+@keyframes vshake {
+  0%   { transform: translate(0, 0) rotate(0); }
+  25%  { transform: translate(6rpx, -10rpx) rotate(-3deg); }
+  50%  { transform: translate(-6rpx, 6rpx) rotate(2deg); }
+  75%  { transform: translate(4rpx, 10rpx) rotate(-2deg); }
+  100% { transform: translate(0, 0) rotate(0); }
+}
+.video-win .rec {
+  position: absolute;
+  top: 14rpx;
+  left: 14rpx;
+  font-size: 20rpx;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+.video-win .avatar {
+  position: absolute;
+  bottom: 14rpx;
+  left: 14rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: #e94560;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34rpx;
+  border: 3rpx solid #fff;
+}
+.video-win .cam-hint {
+  position: absolute;
+  bottom: 24rpx;
+  right: 20rpx;
+  font-size: 22rpx;
+  color: #9aa0b8;
+}
+
+/* ---------- 对话气泡 ---------- */
+.bubble {
+  position: relative;
+  background: #242448;
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 20rpx;
+  padding: 24rpx 28rpx;
+  margin: 0 24rpx 24rpx;
+  font-size: 28rpx;
+  line-height: 1.7;
+}
+.bubble .who {
+  font-size: 22rpx;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+.gold { color: #f5c518; }
+
+/* ---------- 360环视 ---------- */
+.env-hint {
+  font-size: 24rpx;
+  color: #9aa0b8;
+  text-align: center;
+  margin: 0 0 16rpx;
+}
+.env-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+  margin: 0 24rpx;
+}
+.env-item {
+  width: calc((100% - 20rpx) / 2);
+  position: relative;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 20rpx;
+  padding: 24rpx 16rpx;
+  text-align: center;
+}
+.env-item.saved {
+  border-color: #16c79a;
+  background: rgba(22, 199, 154, 0.12);
+}
+.env-item:active {
+  transform: scale(0.96);
+}
+.env-icon { font-size: 64rpx; display: block; margin-bottom: 8rpx; }
+.env-label { font-size: 26rpx; font-weight: 700; }
+.env-desc { font-size: 22rpx; color: #9aa0b8; margin-top: 4rpx; line-height: 1.4; }
+.env-item.saved::after {
+  content: "✓ 已存";
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  font-size: 20rpx;
+  color: #fff;
+  background: #16c79a;
+  border-radius: 12rpx;
+  padding: 4rpx 12rpx;
+}
+.clue-count {
+  text-align: center;
+  font-size: 24rpx;
+  color: #9aa0b8;
+  margin: 20rpx 0 4rpx;
+}
+
+/* ---------- 选项 ---------- */
+.opts {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  margin: 0 24rpx;
+}
+.opt {
+  text-align: left;
+  padding: 26rpx 28rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  color: #eaeaf2;
+  font-size: 28rpx;
+}
+.opt:active { transform: scale(0.98); }
+.opt.opt-correct {
+  background: rgba(22, 199, 154, 0.25);
+  border-color: #16c79a;
+}
+.opt.opt-wrong {
+  background: rgba(233, 69, 96, 0.25);
+  border-color: #e94560;
+}
+
+.feedback {
+  margin: 20rpx 24rpx;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  font-size: 26rpx;
+  text-align: center;
+}
+.feedback.ok { background: rgba(22, 199, 154, 0.2); color: #16c79a; }
+.feedback.no { background: rgba(233, 69, 96, 0.2); color: #ff8598; }
+
+/* ---------- 老王电话卡 ---------- */
+.phone-card {
+  margin: 0 24rpx;
+  border-radius: 20rpx;
+  background: #242448;
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  padding: 24rpx 28rpx;
+}
+.phone-head {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #f5c518;
+  margin-bottom: 16rpx;
+}
+.phone-line {
+  font-size: 28rpx;
+  line-height: 1.7;
+  margin-bottom: 12rpx;
+}
+.reveal-ok {
+  margin-top: 8rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 16rpx;
+  background: rgba(22, 199, 154, 0.2);
+  color: #16c79a;
+  font-size: 26rpx;
+  font-weight: 700;
+}

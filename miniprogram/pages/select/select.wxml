@@ -1,0 +1,31 @@
+<view class="select-head">
+  <view class="select-emoji">🕵️</view>
+  <view class="select-title">餐饮大侦探</view>
+  <view class="subtitle">模拟"创业避坑直播间" · 选择你要诊断的店铺</view>
+</view>
+
+<view class="level-list">
+  <view
+    wx:for="{{levels}}"
+    wx:key="id"
+    class="level-card {{item.locked ? 'locked' : ''}} {{item.cleared ? 'cleared' : ''}}"
+    bindtap="onLevelTap"
+    data-id="{{item.id}}"
+  >
+    <view class="level-emoji">{{item.icon}}</view>
+    <view class="level-info">
+      <view class="level-title">{{item.title}}</view>
+      <view class="level-sub">{{item.subtitle}}</view>
+      <view class="level-meta">
+        {{item.stars}} · {{item.locked ? item.lockText : (item.cleared ? '已完成 ✔' : '待诊断')}}
+      </view>
+    </view>
+    <view class="level-status">{{item.cleared ? '✔' : (item.locked ? '🔒' : '▶')}}</view>
+  </view>
+</view>
+
+<view class="dev-unlock">
+  <button class="dev-btn" bindtap="onDevUnlock">🎮 解锁全部关卡（试玩）</button>
+</view>
+
+<view class="section-hint">仅供玩法验证 · 数据与角色均为虚构</view>

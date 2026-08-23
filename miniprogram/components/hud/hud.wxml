@@ -1,0 +1,9 @@
+<view class="hud">
+  <view class="hud-left">
+    <view class="live"><view class="dot"></view>LIVE</view>
+    <view class="hud-score">得分 {{score}}</view>
+  </view>
+  <view class="hearts">
+    <text wx:for="{{filledHearts}}" wx:key="*this">❤️</text><text wx:for="{{emptyHearts}}" wx:key="*this">🤍</text>
+  </view>
+</view>

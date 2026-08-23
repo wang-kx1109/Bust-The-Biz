@@ -1,0 +1,9 @@
+{
+  "desc": "餐饮大侦探 · sitemap",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

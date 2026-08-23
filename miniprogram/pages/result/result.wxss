@@ -1,0 +1,85 @@
+/* pages/result/result.wxss — 结算页 */
+.report-head {
+  text-align: center;
+  padding: 56rpx 40rpx 16rpx;
+}
+.report-emoji {
+  font-size: 100rpx;
+}
+.report-score {
+  font-size: 104rpx;
+  font-weight: 900;
+  color: #f5c518;
+  line-height: 1.15;
+}
+.report-score .fsm {
+  font-size: 44rpx;
+  color: #9aa0b8;
+  font-weight: 500;
+}
+.report-title {
+  font-size: 28rpx;
+  color: #9aa0b8;
+  margin-top: 8rpx;
+}
+.achieve {
+  display: inline-block;
+  margin-top: 20rpx;
+  padding: 14rpx 40rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #f5c518, #e09b00);
+  color: #3a2a00;
+  font-weight: 800;
+  font-size: 30rpx;
+}
+
+.report-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+  margin: 32rpx 24rpx 0;
+}
+.stat {
+  width: calc((100% - 20rpx) / 2);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  text-align: center;
+}
+.s-k {
+  font-size: 22rpx;
+  color: #9aa0b8;
+}
+.s-v {
+  font-size: 40rpx;
+  font-weight: 800;
+  margin-top: 8rpx;
+}
+
+.loss-card {
+  text-align: center;
+  margin: 24rpx 24rpx 0;
+}
+.loss-label {
+  font-size: 24rpx;
+  color: #9aa0b8;
+}
+.loss-num {
+  font-size: 76rpx;
+  font-weight: 900;
+  color: #e94560;
+  margin: 8rpx 0;
+}
+.loss-tip {
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: #cfd3e6;
+}
+
+.continue-bar {
+  padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}

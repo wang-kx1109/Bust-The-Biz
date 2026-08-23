@@ -1,0 +1,35 @@
+<hud score="{{score}}" hearts="{{patience}}" />
+
+<view class="link-head">
+  <view class="link-title">🔗 连线 · 错误配对</view>
+  <view class="link-sub">先点左边「原因」，再点右边「后果」，线对了就锁定</view>
+  <view class="link-count">已配对 {{connectedCount}}/{{totalPairs}}</view>
+</view>
+
+<view class="link-area">
+  <canvas type="2d" id="linkCanvas" class="link-canvas"></canvas>
+  <view class="cols">
+    <view class="col left">
+      <view
+        wx:for="{{pairs}}"
+        wx:key="idx"
+        class="{{item.cls}}"
+        data-idx="{{item.idx}}"
+        bindtap="onLeftTap"
+      >{{item.left}}</view>
+    </view>
+    <view class="col right">
+      <view
+        wx:for="{{rightCards}}"
+        wx:key="pairIndex"
+        class="{{item.cls}}"
+        data-pair="{{item.pairIndex}}"
+        bindtap="onRightTap"
+      >{{item.right}}</view>
+    </view>
+  </view>
+</view>
+
+<view class="continue-bar">
+  <button class="btn btn-primary" bindtap="onContinue" disabled="{{!allDone}}">进入急救阶段 →</button>
+</view>

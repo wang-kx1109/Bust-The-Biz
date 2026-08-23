@@ -1,0 +1,215 @@
+/* pages/find/find.wxss — 找茬页 */
+
+.find-head {
+  text-align: center;
+  padding: 24rpx 24rpx 12rpx;
+}
+.find-title {
+  font-size: 34rpx;
+  font-weight: 800;
+}
+.find-sub {
+  font-size: 24rpx;
+  color: #9aa0b8;
+  margin-top: 6rpx;
+}
+
+/* ---------- 店铺俯视图 ---------- */
+.scene {
+  position: relative;
+  margin: 20rpx 24rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+  background: #23233f;
+  border: 2rpx solid rgba(255, 255, 255, 0.14);
+}
+.zone {
+  position: absolute;
+  border-radius: 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  color: #9aa0b8;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.zone .zone-icon {
+  font-size: 52rpx;
+  line-height: 1;
+  margin-bottom: 6rpx;
+}
+.zone .zone-label {
+  max-width: 90%;
+  text-align: center;
+}
+
+/* ---------- 错误点标记 ---------- */
+.marker {
+  position: absolute;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  background: #e94560;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  /* left/top 是错误点中心坐标 → 用百分比 translate 居中（禁用 rpx translate） */
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 0 rgba(233, 69, 96, 0.5);
+  animation: markerGlow 1.4s infinite;
+  transition: transform 0.1s;
+}
+.marker:active { transform: translate(-50%, -50%) scale(1.2); }
+.marker.found {
+  background: #16c79a;
+  animation: none;
+}
+.marker.pop {
+  animation: markerPop 0.5s ease-out;
+}
+@keyframes markerGlow {
+  0%   { box-shadow: 0 0 0 0 rgba(233, 69, 96, 0.5); }
+  70%  { box-shadow: 0 0 0 14rpx rgba(233, 69, 96, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(233, 69, 96, 0); }
+}
+@keyframes markerPop {
+  0%   { transform: translate(-50%, -50%) scale(0); }
+  60%  { transform: translate(-50%, -50%) scale(1.35); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ---------- 敲锣动画 ---------- */
+.bell {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 180rpx;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+}
+.bell.play {
+  animation: bellRing 0.9s ease-out forwards;
+}
+@keyframes bellRing {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(-40deg); opacity: 0; }
+  25%  { transform: translate(-50%, -50%) scale(1.5) rotate(15deg); opacity: 1; }
+  50%  { transform: translate(-50%, -50%) scale(1.1) rotate(-12deg); }
+  75%  { transform: translate(-50%, -50%) scale(1.3) rotate(8deg); }
+  100% { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 0; }
+}
+
+/* ---------- 解锁提示横幅 ---------- */
+.banner {
+  margin: 0 24rpx 12rpx;
+  padding: 18rpx 24rpx;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  text-align: center;
+  animation: bannerIn 0.3s;
+}
+.banner.reveal {
+  background: rgba(245, 165, 35, 0.18);
+  color: #f5a623;
+  border: 1rpx solid rgba(245, 165, 35, 0.4);
+}
+@keyframes bannerIn {
+  from { opacity: 0; transform: translateY(-10rpx); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 数据面板（Excel 风格） ---------- */
+.found-panel {
+  margin: 20rpx 24rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+.panel-title {
+  font-size: 24rpx;
+  color: #9aa0b8;
+  padding: 16rpx 24rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.08);
+}
+.panel-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 18rpx 24rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+}
+.panel-row:last-child { border-bottom: none; }
+.p-k {
+  width: 180rpx;
+  color: #9aa0b8;
+  font-size: 24rpx;
+}
+.p-bad {
+  flex: 1;
+  color: #e94560;
+  font-weight: 800;
+  font-size: 30rpx;
+  animation: badPulse 0.5s;
+}
+.p-good {
+  color: #16c79a;
+  font-size: 24rpx;
+}
+@keyframes badPulse {
+  0% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- 底部 ---------- */
+.find-foot {
+  padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+}
+.find-foot .btn { margin-top: 16rpx; }
+
+/* ---------- 弹窗 ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+}
+.modal {
+  width: 100%;
+  max-width: 680rpx;
+  background: #22223f;
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 28rpx;
+  padding: 40rpx;
+  animation: modalPop 0.2s;
+}
+@keyframes modalPop {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.m-title { font-size: 34rpx; font-weight: 800; margin-bottom: 16rpx; }
+.m-desc { font-size: 28rpx; line-height: 1.7; color: #cfd3e6; }
+.m-data {
+  margin: 16rpx 0 24rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 16rpx;
+  background: rgba(233, 69, 96, 0.12);
+  color: #ff8598;
+  font-size: 26rpx;
+}
+.m-btns {
+  display: flex;
+  gap: 20rpx;
+}
+.m-btns .btn { flex: 1; }

@@ -1,0 +1,85 @@
+<hud score="{{score}}" hearts="{{patience}}" />
+
+<!-- 直播间视频窗（恒定） -->
+<view class="video-win">
+  <view class="v-bg"></view>
+  <view class="shopkeeper">{{owner.emoji}}</view>
+  <view class="rec">● REC 00:12</view>
+  <view class="avatar">🕵️</view>
+  <view class="cam-hint">{{owner.camHint}}</view>
+</view>
+
+<!-- 0 连麦接通 -->
+<block wx:if="{{askStep === 0}}">
+  <view class="bubble">
+    <view class="who gold">{{owner.emoji}} {{owner.name}}</view>
+    {{owner.intro}}
+  </view>
+  <view class="continue-bar">
+    <button class="btn btn-primary" bindtap="onStepNext">📞 让店主拿手机转一圈看看</button>
+  </view>
+</block>
+
+<!-- 1 360环视抓拍 -->
+<block wx:elif="{{askStep === 1}}">
+  <view class="bubble">
+    <view class="who gold">{{owner.emoji}} {{owner.name}}</view>
+    好嘞！我给你转一圈啊，你看看我这地段，绝对黄金位置！
+  </view>
+  <view class="env-hint">📸 点击卡片收藏线索（最多 {{maxClues}} 条）</view>
+  <view class="env-grid">
+    <view
+      wx:for="{{envClues}}"
+      wx:key="id"
+      class="env-item {{item.saved ? 'saved' : ''}}"
+      bindtap="onClueTap"
+      data-id="{{item.id}}"
+    >
+      <view class="env-icon">{{item.icon}}</view>
+      <view class="env-label">{{item.label}}</view>
+      <view class="env-desc">{{item.desc}}</view>
+    </view>
+  </view>
+  <view class="clue-count">已存 {{savedClues.length}}/{{maxClues}}</view>
+  <view class="continue-bar">
+    <button class="btn btn-primary" bindtap="onStepNext">开始夺命三连问 →</button>
+  </view>
+</block>
+
+<!-- 2-4 夺命三连问 -->
+<block wx:elif="{{askStep >= 2 && askStep <= 4}}">
+  <view class="bubble">
+    <view class="who gold">🕵️ 你（第 {{qIndex + 1}} 问）</view>
+    {{question.ask}}
+  </view>
+  <view class="bubble">
+    <view class="who gold">{{owner.emoji}} {{owner.name}}（含糊其辞）</view>
+    {{question.vague}}
+  </view>
+  <view class="opts">
+    <view
+      wx:for="{{options}}"
+      wx:key="slot"
+      class="opt {{item.cls}}"
+      bindtap="onAnswer"
+      data-slot="{{item.slot}}"
+    >{{item.label}}</view>
+  </view>
+  <view wx:if="{{feedback}}" class="feedback {{feedback.type}}">{{feedback.text}}</view>
+</block>
+
+<!-- 5 隔壁老王电话验证 -->
+<block wx:elif="{{askStep === 5}}">
+  <view class="bubble">
+    <view class="who gold">🕵️ 你</view>
+    我打个电话给隔壁{{neighbor.name}}，交叉验证一下。
+  </view>
+  <view class="phone-card">
+    <view class="phone-head">{{neighbor.emoji}} {{neighbor.title}}</view>
+    <view wx:for="{{neighbor.texts}}" wx:key="*this" class="phone-line">{{item}}</view>
+    <view class="reveal-ok">{{neighbor.reveal}}</view>
+  </view>
+  <view class="continue-bar">
+    <button class="btn btn-primary" bindtap="onPhoneDone">🔍 进入找茬阶段 →</button>
+  </view>
+</block>

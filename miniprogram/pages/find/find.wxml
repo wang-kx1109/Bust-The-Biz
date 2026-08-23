@@ -1,0 +1,60 @@
+<hud score="{{score}}" hearts="{{patience}}" />
+
+<view class="find-head">
+  <view class="find-title">🔍 找茬 · {{levelTitle}}</view>
+  <view class="find-sub">点击店铺区域检查，红色 ❓ 是可疑错误点</view>
+</view>
+
+<view class="scene" style="height:{{sceneH}}rpx">
+  <view
+    wx:for="{{zones}}"
+    wx:key="id"
+    class="zone"
+    style="{{item.style}}"
+    bindtap="onZoneTap"
+    data-id="{{item.id}}"
+  >
+    <view class="zone-icon">{{item.icon}}</view>
+    <view class="zone-label">{{item.label}}</view>
+  </view>
+
+  <view
+    wx:for="{{faults}}"
+    wx:key="id"
+    class="marker {{item.found ? 'found' : ''}} {{item.id === popId ? 'pop' : ''}}"
+    style="{{item.style}}"
+    bindtap="onFaultTap"
+    data-id="{{item.id}}"
+  >{{item.found ? '✅' : '?'}}</view>
+
+  <view class="bell {{bellOn ? 'play' : ''}} key{{bellKey}}">🔔</view>
+</view>
+
+<view wx:if="{{revealBanner}}" class="banner reveal">{{revealBanner}}</view>
+
+<view wx:if="{{foundFaults.length > 0}}" class="found-panel">
+  <view class="panel-title">📊 数据面板 · 已确证 {{foundFaults.length}}/{{totalFaults}}</view>
+  <view wx:for="{{foundFaults}}" wx:key="id" class="panel-row">
+    <text class="p-k">{{item.panelLabel}}</text>
+    <text class="p-bad">{{item.data}}</text>
+    <text class="p-good">正常 {{item.panelNormal}}</text>
+  </view>
+</view>
+
+<view class="find-foot">
+  <view class="section-hint">漏掉的错误不会计入发现分，会影响止损金额哦</view>
+  <button class="btn btn-primary" bindtap="onContinue">进入连线阶段 →</button>
+</view>
+
+<!-- 错误确认弹窗 -->
+<view wx:if="{{modalFault}}" class="overlay" bindtap="onModalCancel">
+  <view class="modal" catchtap="noop">
+    <view class="m-title">{{modalFault.title}}</view>
+    <view class="m-desc">{{modalFault.desc}}</view>
+    <view class="m-data">实测 {{modalFault.data}} · 正常 {{modalFault.panelNormal}}</view>
+    <view class="m-btns">
+      <button class="btn btn-ghost" bindtap="onModalCancel">再想想</button>
+      <button class="btn btn-primary" bindtap="onModalConfirm">🔔 确是问题，敲锣！</button>
+    </view>
+  </view>
+</view>

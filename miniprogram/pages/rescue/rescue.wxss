@@ -1,0 +1,108 @@
+/* pages/rescue/rescue.wxss */
+.rescue-head {
+  text-align: center;
+  padding: 24rpx 24rpx 12rpx;
+}
+.rescue-title {
+  font-size: 34rpx;
+  font-weight: 800;
+}
+.rescue-sub {
+  font-size: 24rpx;
+  color: #9aa0b8;
+  margin-top: 6rpx;
+}
+
+.bubble {
+  position: relative;
+  background: #242448;
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 20rpx;
+  padding: 24rpx 28rpx;
+  margin: 20rpx 24rpx 24rpx;
+  font-size: 28rpx;
+  line-height: 1.7;
+}
+.bubble .who {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #f5c518;
+  margin-bottom: 8rpx;
+}
+
+.rescue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  margin: 0 24rpx;
+}
+.rescue-item {
+  display: flex;
+  gap: 24rpx;
+  align-items: center;
+  padding: 28rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  font-size: 28rpx;
+  transition: all 0.15s;
+}
+.rescue-item:active { transform: scale(0.98); }
+.rescue-item.ok {
+  background: rgba(22, 199, 154, 0.25);
+  border-color: #16c79a;
+}
+.rescue-item.no {
+  background: rgba(233, 69, 96, 0.2);
+  border-color: #e94560;
+}
+.r-tag {
+  flex: none;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 16rpx;
+  background: #e94560;
+  color: #fff;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rescue-item.ok .r-tag { background: #16c79a; }
+.r-label { flex: 1; }
+
+/* 弹窗 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+}
+.modal {
+  width: 100%;
+  max-width: 680rpx;
+  background: #22223f;
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 28rpx;
+  padding: 40rpx;
+  animation: modalPop 0.2s;
+}
+@keyframes modalPop {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.m-title { font-size: 34rpx; font-weight: 800; margin-bottom: 16rpx; }
+.m-desc { font-size: 28rpx; line-height: 1.7; color: #cfd3e6; }
+.m-btns { margin-top: 28rpx; }
+
+/* 底部操作栏 */
+.continue-bar {
+  padding: 24rpx calc(24rpx) calc(24rpx + env(safe-area-inset-bottom));
+}
+.continue-bar .btn {
+  margin-top: 16rpx;
+}
