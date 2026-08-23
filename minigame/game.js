@@ -17,28 +17,47 @@ const store = require('./js/core/state.js');
 // ---------- 主屏 canvas + ctx ----------
 const canvas = wx.createCanvas();
 const ctx = canvas.getContext('2d');
-const sys = wx.getSystemInfoSync();
-const dpr = sys.pixelRatio || 1;
-const W = sys.windowWidth;
-const H = sys.windowHeight;
-
-canvas.width = Math.round(W * dpr);
-canvas.height = Math.round(H * dpr);
 
 // ---------- 逻辑布局（750 刻度） ----------
 const LOGICAL_W = 750;
-const LOGICAL_H = Math.round((750 * H) / W);
-const SCALE = canvas.width / LOGICAL_W;
-const topInset = Math.round(((sys.statusBarHeight || 24) * LOGICAL_W) / W);
-const bottomInset = Math.round(Math.max(0, (H - (sys.safeArea ? sys.safeArea.bottom : H)) * LOGICAL_W / W));
+let sys = null;
+let W = 375, H = 667, dpr = 2;
 
-layout.W = W;
-layout.H = H;
-layout.LOGICAL_W = LOGICAL_W;
-layout.LOGICAL_H = LOGICAL_H;
-layout.SCALE = SCALE;
-layout.topInset = topInset;
-layout.bottomInset = bottomInset;
+// 启动早期 jsbridge 可能未就绪：读取失败用安全默认值，稍后再校准
+function applyLayout(s) {
+  sys = s;
+  if (!s) return;
+  W = s.windowWidth || W;
+  H = s.windowHeight || H;
+  dpr = s.pixelRatio || dpr;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  layout.W = W;
+  layout.H = H;
+  layout.LOGICAL_W = LOGICAL_W;
+  layout.LOGICAL_H = Math.round((750 * H) / W);
+  layout.SCALE = canvas.width / LOGICAL_W;
+  layout.topInset = Math.round(((s.statusBarHeight || 24) * LOGICAL_W) / W);
+  layout.bottomInset = Math.round(Math.max(0, (H - (s.safeArea ? s.safeArea.bottom : H)) * LOGICAL_W / W));
+}
+
+try {
+  applyLayout(wx.getSystemInfoSync());
+} catch (e) {
+  applyLayout(null); // 兜底默认布局，桥就绪后校准
+}
+// 兜底默认值也先写进 layout（applyLayout(null) 会跳过），这里给最小值
+if (!sys) {
+  layout.W = W; layout.H = H; layout.LOGICAL_W = LOGICAL_W;
+  layout.LOGICAL_H = Math.round((750 * H) / W);
+  layout.SCALE = dpr; // 占位，随后校准
+  layout.topInset = 30; layout.bottomInset = 20;
+}
+
+// jsbridge 就绪后校准真实屏幕（一次）
+setTimeout(() => {
+  try { applyLayout(wx.getSystemInfoSync()); } catch (e) { /* 忽略 */ }
+}, 300);
 
 // ---------- 场景注册 ----------
 const scenes = [
@@ -70,8 +89,8 @@ function frame(ts) {
   const dt = Math.min(50, now - (lastTs || now));
   lastTs = now;
 
-  ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
-  ctx.clearRect(0, 0, LOGICAL_W, LOGICAL_H);
+  ctx.setTransform(layout.SCALE, 0, 0, layout.SCALE, 0, 0);
+  ctx.clearRect(0, 0, layout.LOGICAL_W, layout.LOGICAL_H);
 
   router.update(dt, now);
   router.render(ctx);
