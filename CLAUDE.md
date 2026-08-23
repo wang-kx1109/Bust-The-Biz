@@ -14,6 +14,7 @@
 | `readme.md` | 游戏设计文档（需求/数值/商业化） |
 | `<餐饮大侦探>关卡设计文档.md` | 详细关卡设计 |
 | `docs/PROGRESS.md` | 进度日志 —— **干任何事前先读这里** |
+| `docs/微信小游戏开发指南.md` | **开发体验指南**（环境/导入/真机/排错/协作，给同伴开发者） |
 | `docs/avatar.png` | 小程序/小游戏头像（`node scripts/make-avatar.js` 可再生成） |
 | `project.config.json` | `compileType: "game"`、`appid: wx01973db56f70ae3e`（小游戏） |
 
