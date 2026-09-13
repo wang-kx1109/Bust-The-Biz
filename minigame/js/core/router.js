@@ -25,6 +25,14 @@ module.exports = {
     if (_current && _current.onTap) _current.onTap(x, y);
   },
 
+  // 可选接口：拖动/抬升（场景实现 onMove/onEnd 才会被调用）
+  dispatchMove(x, y) {
+    if (_current && _current.onMove) _current.onMove(x, y);
+  },
+  dispatchEnd(x, y) {
+    if (_current && _current.onEnd) _current.onEnd(x, y);
+  },
+
   update(dt, now) {
     if (_current && _current.update) _current.update(dt, now);
   },

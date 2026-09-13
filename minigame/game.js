@@ -13,6 +13,8 @@
 const layout = require('./js/core/layout.js');
 const router = require('./js/core/router.js');
 const store = require('./js/core/state.js');
+const fx = require('./js/core/fx.js');
+const ads = require('./js/core/ads.js');
 
 // ---------- 主屏 canvas + ctx ----------
 const canvas = wx.createCanvas();
@@ -68,6 +70,7 @@ const scenes = [
   ['rescue', require('./js/scenes/rescue.js')],
   ['result', require('./js/scenes/result.js')],
   ['fail', require('./js/scenes/fail.js')],
+  ['collection', require('./js/scenes/collection.js')],
 ];
 scenes.forEach(([name, scene]) => router.register(name, scene));
 
@@ -81,6 +84,18 @@ wx.onTouchStart((e) => {
   const p = touchXY(t);
   router.dispatchTap(p.x, p.y);
 });
+wx.onTouchMove((e) => {
+  const t = e.touches[0];
+  if (!t) return;
+  const p = touchXY(t);
+  router.dispatchMove(p.x, p.y);
+});
+wx.onTouchEnd((e) => {
+  const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
+  if (!t) return;
+  const p = touchXY(t);
+  router.dispatchEnd(p.x, p.y);
+});
 
 // ---------- 主循环 ----------
 let lastTs = 0;
@@ -91,15 +106,23 @@ function frame(ts) {
 
   ctx.setTransform(layout.SCALE, 0, 0, layout.SCALE, 0, 0);
   ctx.clearRect(0, 0, layout.LOGICAL_W, layout.LOGICAL_H);
+  // 屏震：按 fx 提供的偏移对主 ctx 做 translate
+  const sh = fx.getShake(now);
+  if (sh.dx || sh.dy) ctx.translate(sh.dx, sh.dy);
 
   router.update(dt, now);
+  fx.update(dt, now);
   router.render(ctx);
+  fx.renderWorld(ctx, now);   // 场景渲染后：粒子 + 飘字
+  fx.renderOverlay(ctx, now); // 最上层：弹幕 + 红闪
+  ads.render(ctx, now);       // 广告遮罩（模拟模式）
 
   requestAnimationFrame(frame);
 }
 
 // ---------- 启动 ----------
 store.loadProgress();
+fx.clear(); // 特效清零后再进选关
 router.switchScene('select');
 requestAnimationFrame(frame);
 

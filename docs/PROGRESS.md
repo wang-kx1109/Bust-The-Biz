@@ -4,6 +4,58 @@
 
 ## 里程碑
 
+### 2026-09-13 · v0.4 真实场景建模：找茬阶段「在真实店铺里找异常」
+**背景**：用户反馈找茬阶段"没有真正的场景建模，全靠色块+文字标签"，要求用户在真实场景中找茬。
+
+**交付**：
+- **新增 `minigame/js/core/room.js`（矢量场景建模引擎，零外部图片）**：
+  - 房间骨架：后墙双段渐变（上深下浅）+ 踢脚线/墙角线 + 9 套 style 透视地砖（墙脚张开纵向透视线 + 越远越密的横向砖缝线：tea 浅木格 / bake 暖木条 / hotpot 红金大砖 / coffee 深咖 / fastfood 红白格 / dumpling 灰青石板 / bbq 深灰石板 / sushi 榻榻米纹 / viral 亮面霓虹反射）+ 左上柔光 + 右下暗角 + 墙面 neonText 霓虹招牌（sin 闪烁）+ 粉笔黑板菜单
+  - 家具库 20 种（吧台/收银台/圆桌/卡座/立冰箱/卧冰柜/烤炉/蒸笼/烤架/板前/展示柜/货架/绿植/垃圾桶/海报架/直播架/挂历/灯串/栏杆/纸箱），每种 5-10 图元 + 投影椭圆；9 套 style 固定布局（按 y 排序近压远），摆位避开全部 39 个 fault 锚点
+  - **异常目录 39 个（key=fault.id）**：每个错误点 = 场景内可见异常自包含插画（~70px，黑底小标注牌保证可读），多数带 sin 动画（催租单飘动/价签摇摆/手机屏幕呼吸闪/打印机狂吐小票/糊串冒烟/落叶漂移/饼图红区扫过/红圈重合脉冲/红包印章发光…）；hidden 9 个未解锁不画，revealedPop scale 0→1 弹跳进场
+  - `renderRoom(ctx, lv, now, opts)`（found 绿角框+✅章 / glow 金色双环 / hinted 3s 脉冲）+ `hitTestRoom(lv,lx,ly)`：fault(半径40) → inspect(带 reveal 的 zone) → item(家具) → null；`itemFlavor(type)` 20 条排查吐槽文案
+- **重写 `minigame/js/scenes/find.js`（无标记找茬）**：不再画 zones 色块/❓标记，头部改「🔍 找出店里的致命问题」「已确证 X/N」；点 fault→确认弹窗（再想想/🔔敲锣，burst 砸在锚点屏幕位置）；点隐藏点区域→banner+异常弹跳显现+「仔细看看这里…」；点普通家具→一句 flavor toast（1.2s）；点空处→「这里看起来没问题」；第 1 关 onEnter 一次性教学 toast；HUD/提示卡广告/线索金色高亮/数据面板/敲锣动画/继续按钮全保留
+- zones 数据保留（sanity 依赖），渲染上退化为隐形逻辑区（仅隐藏点触发 + 兜底）
+
+**校验**：`node --check` 两文件；sanity.js 23 项；sanity-game.js 19 项全绿；一次性 node 冒烟 22 项（假 ctx Proxy 10 关×3 帧渲染 / 每 fault 锚点±5px 命中 / reveal zone 中心 inspect / hidden 未解锁不命中 fault / bakery cash→loss 集成 / 20 种 itemFlavor 齐备），跑完已删。
+
+**已知取舍**：
+- hidden 点解锁后其插画锚点与触发 zone 完全同位，命中永远优先 fault（符合直觉）
+- 个别异常插画（如 gambler 计划纸）画在家具旁而非家具上，靠自带投影/小桌 grounding；锚点 ±10px 内无家具是硬保证（冒烟断言）
+- inspect 优先级高于家具：隐藏点 zone 带内的家具点击也触发调查（如 bakery 底部收银带内的收银台），符合"翻台账"语义
+
+**待办 / 下一步**
+- [ ] 用户真机验证 v0.4：场景辨识度、异常插画可读性、无标记点击手感（会不会觉得"不知道点哪"）
+- [ ] （接续 v0.3 待办）真实广告单元 ID / 第三章 11-15 关 / 结算页推荐位 / 云开发后端
+
+---
+
+### 2026-09-13 · v0.3 全面升级：10 关完整版 + 直播间视觉重做 + 商业化闭环
+**背景**：用户对 v0.2 的界面/玩法不满意（纯色块 UI、仅 2 关、无变现），目标"可玩性高、有商业价值、界面吸引人"。
+
+**交付**：
+- **内容**：2 → 10 关（设计文档 1-10 关全部落地；6-10 关文档只有简版，补全了审问/环视/找茬/连线/急救/结算全环节）；每关 5 种店主人设（persona）、`sceneTheme` 主题场景、`danmaku` 专属弹幕；第 5 关保留"急救正确项不是止损"的破套路设计
+- **视觉**：gfx 2.0（阴影卡片/渐变/霓虹字/粒子/飘字/弹幕/红闪/屏震/缓动）；8 场景全部重做（select 章节分组+惯性滚动、ask 打字机+人设表情、find 主题店铺渲染+线索金色高晕、link 手指拖动连线、rescue 盖章动画、result 计数滚动+成就横幅、fail 心碎+复活、新增 collection 成就图鉴页）
+- **玩法机制**：环视线索真正联动找茬（faultId→金色高亮）；勇哥提示卡（每关 2 次，激励视频）；复活续命（每关 1 次，回失败阶段 +2 心）；第二章追问机制（retryable 首错可再答）；patienceMax 按章节（第一章 5 / 第二章 4）
+- **商业化**：激励视频封装 ads.js（真实 SDK 就绪走真广告，否则开发模拟降级）；三个点位（提示卡/复活/双倍侦探币）+ Banner 占位（`adunit-btb-banner`，需替换真实单元 ID）；成就 10 个 + 图鉴 10 卡 + 侦探币（achieve.js）；埋点 track.js（level_start/complete/fail/ad_watch/share_click/fault_found/link_done）
+- **音效**：`scripts/make-sounds.js` 零依赖合成 6 个 WAV（锣/对/错/心碎/点击/号角）→ `minigame/assets/sounds/`；audio.js 封装（wx 隔离，dev 静音）
+- **数据**：双镜像保持 deepEqual（sanity.js 断言 10 关 + 新字段校验：chapter/persona/sceneTheme/danmaku/envClues.faultId/patienceMax/retryable）；**bakery.difficulty 由 2 改为 1**（对齐设计文档关卡02=★，旧值是历史偏差）
+
+**校验**：`node --check` 全部文件；sanity.js 23 项；sanity-game.js 19 项（新增 patienceMax/追问/useHint/revive/clueGlowFaults/成就图鉴侦探币 6 组用例 + collection 接口检查）；check-templates.js 7 页全绿。
+
+**已知提示**：
+- 触屏点按在 select/collection 延迟到抬手分流（拖动/点按互斥），手感差异属设计取舍
+- 提示卡 useHint 不重复提示同一错误点（state.hinted 记录）
+- 根 `levels.js`（坏掉的 HTML 原型）与新数据进一步脱节，维持不维护；真源是 `minigame/js/data/levels.js` ⇄ `miniprogram/data/levels.js`
+
+**待办 / 下一步**
+- [ ] 用户真机验证（开发者工具模拟器 + 手机预览）：emoji 真机渲染、select/collection 滚动手感、link 拖动连线、广告模拟遮罩、Windows 模拟器 emoji 黑白为已知现象
+- [ ] 接入真实广告单元 ID（替换 ads.js 的 `adunit-btb-reward` / `adunit-btb-banner` 占位）+ 流量主开通
+- [ ] 第三章（11-15 关：合同陷阱/股权纠纷/连锁崩塌，含限时机制 60s）——设计文档数据已在，复制本章模式扩数据即可
+- [ ] 结算页诊断建议推荐位（品牌合作 CPA 位，GDD 6.3）
+- [ ] 云开发后端（成就/侦探币当前纯本地存储，换设备丢失）
+
+---
+
 ### 2026-08-24 · v0.2 转向「微信小游戏」（Canvas 渲染，2 关全流程）
 **背景**：用户注册的 AppID 类型是小游戏（`wx01973db56f70ae3e`），与旧小程序架构不兼容 → 决定整体迁往小游戏。
 

@@ -9,6 +9,13 @@
  *  3. 失败路径：5 次答错 → patience 0 → failed + stage=fail
  *  4. 连线语义：未选左列先点右列 → needLeft；错配扣耐心
  *  5. 结算退化：全错输入 → loss = baseLoss、最低成就
+ *  6. 场景接口存在性（8 场景含 collection）
+ *  7. patienceMax 按关卡配置（第二章 4 心）
+ *  8. 追问机制（retryable 首错可再答）
+ *  9. 勇哥提示卡 useHint（确定性 + 上限 2）
+ *  10. 复活 revive（回 failedAt 阶段 +2 心，每关一次）
+ *  11. 环视线索联动（clueGlowFaults）
+ *  12. 成就 / 图鉴 / 侦探币（onComplete / addCoins / cards）
  * ===================================================================== */
 const assert = require('assert');
 // 小游戏是当前开发重心：校验 minigame 侧的状态机（与 miniprogram 侧同构）
@@ -166,7 +173,7 @@ ok('零动作 → loss=140 / 最低成就 / shareText 插值');
 
 /* ---------- 6. 小游戏场景接口存在性 ---------- */
 console.log('\n[6] 小游戏场景接口');
-const SCENE_NAMES = ['select', 'ask', 'find', 'link', 'rescue', 'result', 'fail'];
+const SCENE_NAMES = ['select', 'ask', 'find', 'link', 'rescue', 'result', 'fail', 'collection'];
 for (const name of SCENE_NAMES) {
   const scene = require(`../minigame/js/scenes/${name}.js`);
   assert(typeof scene.render === 'function', `${name} 缺少 render(ctx)`);
@@ -175,5 +182,109 @@ for (const name of SCENE_NAMES) {
   if (scene.update !== undefined) assert(typeof scene.update === 'function', `${name}.update 应为函数或无`);
   ok(`${name}：render/onTap/onEnter 接口齐备`);
 }
+
+/* ---------- 7. 耐心上限按关卡配置 ---------- */
+console.log('\n[7] 耐心上限 patienceMax（第一章 5 / 第二章 4）');
+const dp = game.findLevel('dumpling');
+assert(dp.retryable === true && dp.chapter === 2, 'dumpling 应为第二章追问关');
+assert.strictEqual(dp.patienceMax, 4, 'dumpling patienceMax=4');
+game.start('dumpling');
+assert.strictEqual(game.state.patience, 4, 'start 后耐心 = patienceMax');
+assert.strictEqual(game.getStateView().patienceMax, 4, '视图带 patienceMax');
+game.start('milk-tea');
+assert.strictEqual(game.state.patience, 5, 'milk-tea 默认 5 心');
+ok('patienceMax 按关卡生效，默认 5');
+
+/* ---------- 8. 追问机制（retryable） ---------- */
+console.log('\n[8] 追问机制（首错扣耐心可再答，再错推进）');
+game.start('dumpling');
+const dpWrong = dp.interview.questions[0].options.findIndex(o => !o.correct);
+const dpRight = dp.interview.questions[0].options.findIndex(o => o.correct);
+let rr = game.answerQuestion(0, dpWrong);
+assert.strictEqual(rr.correct, false, '首答错');
+assert.strictEqual(rr.retry, true, 'retryable 首错应允许追问');
+assert.strictEqual(game.state.patience, 3, '首错扣 1（4→3）');
+assert.strictEqual(game.state.score, 0, '答错不得分');
+rr = game.answerQuestion(0, dpRight);
+assert.strictEqual(rr.correct, true, '追问答对应得分');
+assert.strictEqual(rr.retry, false, '答对无追问标记（retry:false）');
+assert.strictEqual(game.state.score, 1, '追问答对 +1');
+// 第二题：连错两次 → 第二次 retry:false
+game.answerQuestion(1, dp.interview.questions[1].options.findIndex(o => !o.correct));
+rr = game.answerQuestion(1, dp.interview.questions[1].options.findIndex(o => !o.correct));
+assert.strictEqual(rr.retry, false, '同题再错应正常推进（retry:false）');
+assert.strictEqual(game.state.patience, 1, '两次错共扣 2（3→1）');
+// 非 retryable 关卡 retry 恒 false
+game.start('milk-tea');
+rr = game.answerQuestion(0, mt.interview.questions[0].options.findIndex(o => !o.correct));
+assert.strictEqual(rr.retry, false, 'milk-tea 无追问');
+ok('追问：首错 retry:true / 再答对得分 / 再错推进 / 非 retryable 不受影响');
+
+/* ---------- 9. 勇哥提示卡 useHint ---------- */
+console.log('\n[9] 勇哥提示卡（确定性取第一个未找到，上限 2）');
+game.start('milk-tea');
+let hr = game.useHint();
+assert.strictEqual(hr.ok, true, '首次提示应成功');
+assert.strictEqual(hr.faultId, 'rent', '提示取第一个未找到错误点');
+hr = game.useHint();
+assert.strictEqual(hr.faultId, 'food', '第二次提示下一个');
+hr = game.useHint();
+assert.strictEqual(hr.ok, false, '第三次应拒绝');
+assert.strictEqual(hr.reason, 'limit', '达到上限');
+game.start('milk-tea');
+['rent', 'food', 'labor'].forEach(id => game.confirmFlaw(id));
+hr = game.useHint();
+assert.strictEqual(hr.ok, false, '全部找到后无可提示');
+assert.strictEqual(hr.reason, 'none');
+ok('useHint：顺序/上限 2 / 无候选语义正确');
+
+/* ---------- 10. 复活 revive ---------- */
+console.log('\n[10] 复活（failed → 回 failedAt 阶段 +2 心，每关一次）');
+game.start('milk-tea');
+const mtWrong0 = mt.interview.questions[0].options.findIndex(o => !o.correct);
+for (let i = 0; i < 5; i++) game.answerQuestion(0, mtWrong0);
+assert.strictEqual(game.state.failed, true, '应先失败');
+assert.strictEqual(game.state.stage, 'fail');
+assert.strictEqual(game.state.failedAt, 'ask', '记录失败阶段');
+let rv = game.revive();
+assert.strictEqual(rv.ok, true, '复活应成功');
+assert.strictEqual(rv.stage, 'ask', '回到失败阶段');
+assert.strictEqual(game.state.patience, 2, '复活 +2 心');
+assert.strictEqual(game.state.failed, false, '清除 failed');
+rv = game.revive();
+assert.strictEqual(rv.ok, false, '每关只能复活一次');
+ok('revive：回阶段/+2 心/单次');
+
+/* ---------- 11. 环视线索联动找茬 ---------- */
+console.log('\n[11] 线索联动（envClues.faultId → clueGlowFaults）');
+game.start('milk-tea');
+assert.deepStrictEqual(game.clueGlowFaults(), [], '未收藏时无高亮');
+game.toggleClue('road');
+game.toggleClue('waimai');
+assert.deepStrictEqual(game.clueGlowFaults(), ['rent', 'food'], '收藏的线索映射到错误点');
+game.toggleClue('starbucks'); // faultId 为 null → 不产生高亮
+assert.deepStrictEqual(game.clueGlowFaults(), ['rent', 'food'], 'faultId 为空的线索不产生高亮');
+ok('clueGlowFaults：收藏线索 → 找茬金色高亮目标');
+
+/* ---------- 12. 成就 / 图鉴 / 侦探币 ---------- */
+console.log('\n[12] 成就系统（onComplete / addCoins / cards）');
+const achieve = require('../minigame/js/core/achieve.js');
+const coins0 = achieve.stats().coins;
+achieve.addCoins(10);
+assert.strictEqual(achieve.stats().coins, coins0 + 10, '侦探币累加');
+game.start('milk-tea');
+answerAllCorrect(mt);
+mt.findFaults.faults.forEach(f => game.confirmFlaw(f.id));
+mt.connectPairs.forEach((_, i) => { game.selectLeft(i); game.selectRight(i); });
+game.chooseRescue(2);
+const report = game.computeResult();
+game.completeLevel();
+const fresh = achieve.onComplete('milk-tea', report, game.state);
+assert(fresh.indexOf('🏆 避坑天花板') === -1, '满分通关解锁的是 perfect 而非最高档成就名');
+assert(fresh.some(t => /火眼金睛|首诊成功/.test(t)), '应解锁首关相关成就：' + fresh.join(','));
+assert(achieve.cards().find(c => c.id === 'milk-tea').unlocked, '图鉴收录 milk-tea');
+assert(achieve.isUnlocked('first-clear'), 'first-clear 已解锁');
+assert(achieve.stats().totalSaved >= report.recoveredTotal, '累计止损入账');
+ok('成就/图鉴/侦探币：入账与新解锁正确（' + fresh.join('、') + '）');
 
 console.log(`\n✅ sanity-game.js 逻辑校验通过（${pass} 项）\n`);

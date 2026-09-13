@@ -12,19 +12,23 @@
  * 状态字段：
  *  levelId / stage(ask|find|link|rescue|result|fail|select)
  *  askStep(0开场 1环视 2-4三连问 5老王 6完成)
- *  patience(5) / score / askCorrect
+ *  patienceMax(关卡 patienceMax||5) / patience(=patienceMax)
+ *  score / askCorrect
  *  savedClues[] / revealedZones{} / foundFlaws[]
  *  selectedLeft(连线选中的左卡片 index) / connected{} / rightOrder[]（右列洗牌顺序）
- *  rescueChosen / rescueCorrect / failed
+ *  rescueChosen / rescueCorrect / failed / failedAt
+ *  revived(复活过?) / hintsUsed(提示次数) / hinted[](已提示过的错误点) / askRetries[](追问标记 per qslot)
  * ===================================================================== */
 const LEVELS = require('../data/levels.js');
 
 const STORAGE_KEY = 'btb_progress';
+const MAX_HINTS = 2;
 
 const state = {
   levelId: null,
   stage: 'select',
   askStep: 0,
+  patienceMax: 5,
   patience: 5,
   score: 0,
   askCorrect: 0,
@@ -37,6 +41,11 @@ const state = {
   rescueChosen: null,  // 急救选项 index
   rescueCorrect: false,
   failed: false,
+  failedAt: null,      // 失败时所在阶段（复活回到这里）
+  revived: false,      // 本关是否已用复活
+  hintsUsed: 0,        // 本关已用提示次数（上限 MAX_HINTS）
+  hinted: [],          // 已提示过的错误点 id（不重复提示）
+  askRetries: [],      // qslot -> true（retryable 关卡答错后给一次追问）
 };
 
 const progress = { completed: [] }; // ['milk-tea', ...]
@@ -63,6 +72,7 @@ function maxScore(lv) {
 }
 function failIfZero() {
   if (state.patience <= 0) {
+    state.failedAt = state.stage;
     state.failed = true;
     state.stage = 'fail';
     return true;
@@ -74,11 +84,14 @@ function failIfZero() {
  * 开始 / 重置 / 状态读取
  * ===================================================================== */
 function reset(levelId) {
+  const lv = levelId ? findLevel(levelId) : null;
+  const pm = lv && lv.patienceMax ? lv.patienceMax : 5;
   Object.assign(state, {
     levelId,
     stage: levelId ? 'ask' : 'select',
     askStep: 0,
-    patience: 5,
+    patienceMax: pm,
+    patience: pm,
     score: 0,
     askCorrect: 0,
     savedClues: [],
@@ -90,6 +103,11 @@ function reset(levelId) {
     rescueChosen: null,
     rescueCorrect: false,
     failed: false,
+    failedAt: null,
+    revived: false,
+    hintsUsed: 0,
+    hinted: [],
+    askRetries: [],
   });
 }
 
@@ -115,6 +133,7 @@ function getStateView() {
     levelId: state.levelId,
     stage: state.stage,
     askStep: state.askStep,
+    patienceMax: state.patienceMax,
     patience: state.patience,
     score: state.score,
     askCorrect: state.askCorrect,
@@ -128,6 +147,8 @@ function getStateView() {
     rescueChosen: state.rescueChosen,
     rescueCorrect: state.rescueCorrect,
     failed: state.failed,
+    revived: state.revived,
+    hintsUsed: state.hintsUsed,
     maxScore: lv ? maxScore(lv) : 0,
   };
 }
@@ -141,28 +162,72 @@ function sync(page) {
  * 审问阶段
  * ===================================================================== */
 // qslot 0-2，optIdx 0-2
+// retryable 关卡：每题答错首给一次追问（返回 retry:true，场景保持本题可再答）
 function answerQuestion(qslot, optIdx) {
   const lv = getLevel();
-  if (!lv) return { correct: false };
+  if (!lv) return { correct: false, retry: false };
   const q = lv.interview.questions[qslot];
-  if (!q) return { correct: false };
+  if (!q) return { correct: false, retry: false };
   const opt = q.options[optIdx];
-  if (!opt) return { correct: false };
+  if (!opt) return { correct: false, retry: false };
 
   if (opt.correct) {
+    if (state.askRetries[qslot]) state.askRetries[qslot] = false; // 清掉该题追问标记
     state.score++;
     state.askCorrect++;
-  } else {
-    state.patience--;
-    failIfZero();
+    return {
+      correct: true,
+      retry: false,
+      reveal: opt.reveal,
+      patience: state.patience,
+      score: state.score,
+      failed: state.failed,
+    };
   }
+  // 答错：retryable 且该题尚未追问过 → 给一次追问机会
+  const retry = !!(lv.retryable && !state.askRetries[qslot]);
+  if (retry) state.askRetries[qslot] = true;
+  state.patience--;
+  failIfZero();
   return {
-    correct: opt.correct,
+    correct: false,
+    retry,
     reveal: opt.reveal,
     patience: state.patience,
     score: state.score,
     failed: state.failed,
   };
+}
+
+// 复活（激励视频奖励）：仅 failed 且本关未复活过可用一次
+function revive() {
+  if (!state.failed || state.revived) return { ok: false };
+  state.revived = true;
+  state.failed = false;
+  state.patience = Math.min(state.patienceMax, 2);
+  state.stage = state.failedAt || 'ask';
+  return { ok: true, patience: state.patience, stage: state.stage };
+}
+
+// 提示：每关上限 MAX_HINTS 次；候选 = 可见错误点中未找到且未提示过的，取第一个（确定性）
+function useHint() {
+  if (state.hintsUsed >= MAX_HINTS) return { ok: false, reason: 'limit' };
+  const cand = visibleFaults().filter(f =>
+    state.foundFlaws.indexOf(f.id) < 0 && state.hinted.indexOf(f.id) < 0);
+  if (!cand.length) return { ok: false, reason: 'none' };
+  state.hintsUsed++;
+  state.hinted.push(cand[0].id);
+  return { ok: true, faultId: cand[0].id };
+}
+
+// 已收藏线索中携带 faultId 的 → 对应错误点 id（场景据此高亮 glow）
+function clueGlowFaults() {
+  const lv = getLevel();
+  if (!lv || !lv.interview || !Array.isArray(lv.interview.envClues)) return [];
+  return state.savedClues
+    .map(id => lv.interview.envClues.find(c => c.id === id))
+    .filter(c => c && c.faultId)
+    .map(c => c.faultId);
 }
 
 // 收藏线索（上限 maxClues）
@@ -397,6 +462,10 @@ module.exports = {
   getStateView,
   sync,
   answerQuestion,
+  revive,
+  useHint,
+  clueGlowFaults,
+  MAX_HINTS,
   toggleClue,
   advanceAsk,
   phoneVerified,

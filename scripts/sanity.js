@@ -5,10 +5,12 @@
  * 用法：node scripts/sanity.js （在仓库根目录执行）
  * 校验维度：
  *  1. 数据完整性：levels 数量、ID 唯一性、HTML 标签无泄漏
- *  2. 坐标映射：所有错误点中心落在所属 zone 内且位于 750x750 画布内
- *  3. 隐藏点引用：zone.reveal ↔ fault.hidden ↔ fault.unlockBy 交叉一致
- *  4. 结构契约：每题恰好 1 个正确答案、急救恰好 1 个对、成就降序且顶端对应满分
- *  5. 满分公式：maxScore = 问数 + 错误数 + 对数 + 1
+ *  2. 元数据契约：chapter / persona / sceneTheme / patienceMax / retryable
+ *  3. 关卡联动：danmaku 条数与内容、envClues 恰好 4 条且 faultId 指向本关错误点
+ *  4. 坐标映射：所有错误点中心落在所属 zone 内且位于 750x750 画布内
+ *  5. 隐藏点引用：zone.reveal ↔ fault.hidden ↔ fault.unlockBy 交叉一致
+ *  6. 结构契约：每题恰好 1 个正确答案、急救恰好 1 个对、成就 5 档降序且顶端对应满分
+ *  7. 满分公式：maxScore = 问数 + 错误数 + 对数 + 1；满分可挽回额 ≥ baseLoss
  * ===================================================================== */
 const assert = require('assert');
 const path = require('path');
@@ -29,23 +31,53 @@ ok('miniprogram ↔ minigame 两份关卡数据字节级一致（改数据需同
 
 /* ---------- 1. 数据完整性 ---------- */
 console.log('\n[1] 数据完整性');
-assert.strictEqual(LEVELS.length, 2, '关卡数量应为 2（与根 levels.js 同步）');
+assert.strictEqual(LEVELS.length, 10, '关卡数量应为 10（第1-10关，与根 levels.js 同步）');
 ok(`levels 数量 = ${LEVELS.length}`);
+
+const PERSONA_TYPES = ['confused', 'stubborn', 'blamer', 'influencer', 'broken', 'honest', 'arrogant', 'idealist', 'gambler', 'elder'];
+const ACCENT_RE = /^#[0-9a-fA-F]{6}$/;
+const HTML_RE = /<\/?[a-zA-Z][^>]*>/;
 
 const levelIds = new Set();
 const zoneIds = new Set();
 const faultIds = new Set();
 const pairIds = new Set();
 
-for (const lv of LEVELS) {
+for (const [idx, lv] of LEVELS.entries()) {
   assert(!levelIds.has(lv.id), `关卡 id 重复：${lv.id}`);
   levelIds.add(lv.id);
 
   // 领域文本不允许残留 HTML 标签
-  const htmlRe = /<\/?[a-zA-Z][^>]*>/;
   const texts = lv.interview.neighbor.texts;
   assert(Array.isArray(texts) && texts.length > 0, `关卡 ${lv.id} neighbor.texts 应为非空数组`);
-  assert(!htmlRe.test(JSON.stringify(texts)), `关卡 ${lv.id} neighbor.texts 含 HTML 标签（应已转纯文本）`);
+  assert(!HTML_RE.test(JSON.stringify(texts)), `关卡 ${lv.id} neighbor.texts 含 HTML 标签（应已转纯文本）`);
+
+  /* ---------- 2. 元数据契约（chapter / persona / sceneTheme / patienceMax / retryable） ---------- */
+  assert(idx === 0 ? lv.chapter === 1 : [1, 2].includes(lv.chapter),
+    `关卡 ${lv.id} chapter 应为 1 或 2（且第 1 关为 1），实际 ${lv.chapter}`);
+  assert(PERSONA_TYPES.includes(lv.persona && lv.persona.type), `关卡 ${lv.id} persona.type 非法：${lv.persona && lv.persona.type}`);
+  assert(typeof lv.persona.tag === 'string' && lv.persona.tag.length > 0, `关卡 ${lv.id} persona.tag 为空`);
+  assert(typeof lv.persona.catchphrase === 'string' && lv.persona.catchphrase.length > 0, `关卡 ${lv.id} persona.catchphrase 为空`);
+  const st = lv.findFaults.sceneTheme;
+  assert(st && typeof st.style === 'string' && st.style.length > 0, `关卡 ${lv.id} sceneTheme.style 为空`);
+  assert(ACCENT_RE.test(st && st.accent), `关卡 ${lv.id} sceneTheme.accent 应为 #rrggbb，实际 ${st && st.accent}`);
+  assert(typeof st.sign === 'string' && st.sign.length > 0, `关卡 ${lv.id} sceneTheme.sign 为空`);
+  assert(Number.isInteger(lv.patienceMax) && lv.patienceMax >= 3 && lv.patienceMax <= 5,
+    `关卡 ${lv.id} patienceMax 应为 3..5 的整数，实际 ${lv.patienceMax}`);
+  assert.strictEqual(lv.retryable, lv.chapter === 2, `关卡 ${lv.id} retryable 应仅当 chapter===2 时为 true`);
+
+  /* ---------- 3. 关卡联动（danmaku / envClues → faults） ---------- */
+  const danmaku = lv.interview.danmaku;
+  assert(Array.isArray(danmaku) && danmaku.length >= 4, `关卡 ${lv.id} danmaku 至少 4 条`);
+  assert(!HTML_RE.test(JSON.stringify(danmaku)), `关卡 ${lv.id} danmaku 含 HTML 标签`);
+
+  const envClues = lv.interview.envClues;
+  assert(Array.isArray(envClues) && envClues.length === 4, `关卡 ${lv.id} envClues 应恰好 4 条`);
+  const localFaultIds = new Set(lv.findFaults.faults.map(f => f.id));
+  for (const c of envClues) {
+    if (c.faultId == null) continue;
+    assert(localFaultIds.has(c.faultId), `关卡 ${lv.id} 线索 ${c.id} 的 faultId ${c.faultId} 指向不存在的错误点`);
+  }
 
   // 三连问：每题恰好 1 个正确答案
   for (const q of lv.interview.questions) {
@@ -56,13 +88,21 @@ for (const lv of LEVELS) {
   const rc = lv.firstAid.options.filter(o => o.correct).length;
   assert.strictEqual(rc, 1, `关卡 ${lv.id} 急救应恰好 1 个正确`);
 
-  // 成就：按 min 降序，且顶部档位对应满分
+  // 成就：5 档、按 min 降序，且顶部档位对应满分
   const achs = lv.result.achievements;
+  assert.strictEqual(achs.length, 5, `关卡 ${lv.id} 成就应为 5 档`);
   for (let i = 1; i < achs.length; i++) {
     assert(achs[i - 1].min > achs[i].min, `关卡 ${lv.id} 成就应降序排列`);
   }
   assert.strictEqual(achs[0].min, lv.interview.questions.length + lv.findFaults.faults.length + lv.connectPairs.length + 1,
     `关卡 ${lv.id} 最高成就档对应满分`);
+
+  // 满分可挽回额 ≥ baseLoss（否则满分也止不住损）
+  const w = lv.result.weights;
+  const recoverable = w.find * lv.findFaults.faults.length + w.link * lv.connectPairs.length
+    + w.rescue * 1 + w.ask * lv.interview.questions.length + w.patience * lv.patienceMax;
+  assert(recoverable >= lv.result.baseLoss,
+    `关卡 ${lv.id} 满分可挽回额 ${recoverable} 应 ≥ baseLoss ${lv.result.baseLoss}`);
 
   // 找茬：id 唯一性
   for (const z of lv.findFaults.zones) {
@@ -74,6 +114,10 @@ for (const lv of LEVELS) {
     faultIds.add(lv.id + '/' + f.id);
     pairIds.add(f.id);
   }
+  // 第 2 关起至少 1 个隐藏错误点
+  if (idx > 0) {
+    assert(lv.findFaults.faults.some(f => f.hidden), `关卡 ${lv.id}（第 ${idx + 1} 关）应至少 1 个隐藏错误点`);
+  }
   // 连线：左侧是"错误原因"，必须引用存在的错误点 id；右侧是"后果 id"（独立命名空间），仅需唯一
   const conseqIds = new Set();
   for (const p of lv.connectPairs) {
@@ -83,15 +127,14 @@ for (const lv of LEVELS) {
     conseqIds.add(p.rightId);
   }
 }
-ok('两关数据结构契约通过（唯一ID / 单选正确 / 成就降序 / 急救唯一正确）');
+ok('十关元数据 / 结构契约通过（chapter / persona / sceneTheme / danmaku / envClues→faults / 单选正确 / 成就降序 / 急救唯一正确）');
 
-/* ---------- 2 & 3. 坐标映射 + 隐藏点引用 ---------- */
-console.log('\n[2/3] 坐标映射 + 隐藏点引用');
+/* ---------- 4 & 5. 坐标映射 + 隐藏点引用 ---------- */
+console.log('\n[4/5] 坐标映射 + 隐藏点引用');
 const S = 750;
 for (const lv of LEVELS) {
   const ff = lv.findFaults;
   const { w, h } = ff.sceneSize;
-  const cx = c => c.x, cy = c => c.y; // 错误点以 x/y 为中心
 
   for (const f of ff.faults) {
     assert(Number.isFinite(f.x) && Number.isFinite(f.y), `关卡 ${lv.id} 错误点 ${f.id} 坐标非法`);
@@ -119,12 +162,16 @@ for (const lv of LEVELS) {
   ok(`关卡 ${lv.id}：${ff.faults.length} 个错误点均落在 zone 内，hidden/unlockBy 交叉一致`);
 }
 
-/* ---------- 4. 满分公式 ---------- */
-console.log('\n[4] 满分公式');
+/* ---------- 6. 满分公式 ---------- */
+console.log('\n[6] 满分公式');
 for (const lv of LEVELS) {
   const max = lv.interview.questions.length + lv.findFaults.faults.length + lv.connectPairs.length + 1;
   assert.strictEqual(max, lv.result.achievements[0].min, `关卡 ${lv.id} maxScore 与最高成就档不符`);
-  ok(`关卡 ${lv.id}：maxScore = ${max}（问${lv.interview.questions.length} + 错${lv.findFaults.faults.length} + 对${lv.connectPairs.length} + 急救1）`);
+  const w = lv.result.weights;
+  const recoverable = w.find * lv.findFaults.faults.length + w.link * lv.connectPairs.length
+    + w.rescue + w.ask * lv.interview.questions.length + w.patience * lv.patienceMax;
+  assert(recoverable >= lv.result.baseLoss, `关卡 ${lv.id} 满分无法止损（${recoverable} < ${lv.result.baseLoss}）`);
+  ok(`关卡 ${lv.id}：maxScore = ${max}（问${lv.interview.questions.length} + 错${lv.findFaults.faults.length} + 对${lv.connectPairs.length} + 急救1），满分可挽回 ${recoverable} ≥ baseLoss ${lv.result.baseLoss}`);
 }
 
 console.log(`\n✅ sanity.js 数据校验通过（${pass} 项）\n`);
