@@ -3,10 +3,11 @@
  * ---------------------------------------------------------------------
  * 职责：
  *  1. 创建主屏 canvas + 2d context
- *  2. 计算渲染布局（虚拟逻辑宽 750，与关卡数据 rpx 坐标 1:1）
- *  3. 注册 7 个场景到 router
- *  4. 触屏分发（wx.onTouchStart）
- *  5. requestAnimationFrame 主循环：update + render
+ *  2. 计算渲染布局（虚拟逻辑宽 750，与关卡数据 rpx 坐标 1:1），
+ *     jsbridge 未就绪时兜底默认布局 + 渐进式多轮重试校准
+ *  3. 注册 8 个场景到 router
+ *  4. 触屏分发（wx.onTouchStart/Move/End → tap/move/end）
+ *  5. requestAnimationFrame 主循环：update + render + fx/ads 收尾
  *
  * 注意：本文件是小游戏入口，不要使用 DOM/WXML。
  * ===================================================================== */
@@ -56,10 +57,21 @@ if (!sys) {
   layout.topInset = 30; layout.bottomInset = 20;
 }
 
-// jsbridge 就绪后校准真实屏幕（一次）
-setTimeout(() => {
-  try { applyLayout(wx.getSystemInfoSync()); } catch (e) { /* 忽略 */ }
-}, 300);
+// jsbridge 就绪后校准真实屏幕：渐进式多轮重试（Windows 版工具桥接初始化偏慢，
+// 单发 300ms 可能仍未就绪），任一轮成功即停，全部失败则沿用兜底默认布局
+(function calibrateLayout() {
+  const RETRIES = [300, 1000, 2500, 5000];
+  let i = 0;
+  function attempt() {
+    if (i >= RETRIES.length || sys) return;
+    try {
+      applyLayout(wx.getSystemInfoSync()); // 成功即停（applyLayout 会置 sys）
+    } catch (e) { /* 桥未就绪，下一轮再试 */ }
+    i++;
+    if (!sys && i < RETRIES.length) setTimeout(attempt, RETRIES[i] - RETRIES[i - 1]);
+  }
+  setTimeout(attempt, RETRIES[0]);
+})();
 
 // ---------- 场景注册 ----------
 const scenes = [
