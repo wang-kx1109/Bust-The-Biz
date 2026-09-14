@@ -77,7 +77,7 @@ if (!sys) {
 const scenes = [
   ['select', require('./js/scenes/select.js')],
   ['ask', require('./js/scenes/ask.js')],
-  ['find', require('./js/scenes/find.js')],
+  ['photo', require('./js/scenes/photo.js')],
   ['link', require('./js/scenes/link.js')],
   ['rescue', require('./js/scenes/rescue.js')],
   ['result', require('./js/scenes/result.js')],

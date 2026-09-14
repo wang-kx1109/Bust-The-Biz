@@ -18,6 +18,7 @@
  *  selectedLeft(连线选中的左卡片 index) / connected{} / rightOrder[]（右列洗牌顺序）
  *  rescueChosen / rescueCorrect / failed / failedAt
  *  revived(复活过?) / hintsUsed(提示次数) / hinted[](已提示过的错误点) / askRetries[](追问标记 per qslot)
+ *  photos[]（拍照取证：{faultId|null, title?, t}，胶卷格上限 photoMax=getPhotoMax(关卡)）
  * ===================================================================== */
 const LEVELS = require('../data/levels.js');
 
@@ -46,6 +47,7 @@ const state = {
   hintsUsed: 0,        // 本关已用提示次数（上限 MAX_HINTS）
   hinted: [],          // 已提示过的错误点 id（不重复提示）
   askRetries: [],      // qslot -> true（retryable 关卡答错后给一次追问）
+  photos: [],          // 拍下的照片（取证）：{faultId|null, title?, t}
 };
 
 const progress = { completed: [] }; // ['milk-tea', ...]
@@ -108,6 +110,7 @@ function reset(levelId) {
     hintsUsed: 0,
     hinted: [],
     askRetries: [],
+    photos: [],
   });
 }
 
@@ -141,6 +144,8 @@ function getStateView() {
     maxClues: lv ? lv.interview.maxClues : 0,
     revealedZones: Object.assign({}, state.revealedZones),
     foundFlaws: state.foundFlaws.slice(),
+    photos: state.photos.slice(),
+    photoMax: lv ? getPhotoMax(lv) : 0,
     selectedLeft: state.selectedLeft,
     connected: Object.assign({}, state.connected),
     rightOrder: state.rightOrder.slice(),
@@ -282,6 +287,39 @@ function confirmFlaw(faultId) {
   state.foundFlaws.push(faultId);
   state.score++;
   return { already: false, found: true, score: state.score };
+}
+
+// 胶卷格上限：关卡可配 photoMax，默认 = 错误点数 + 1
+function getPhotoMax(lv) {
+  return lv.photoMax || (lv.findFaults.faults.length + 1);
+}
+
+// 拍照取证：拍到错误点 = 确认该错误。
+// 注意：确认动作由 confirmFlaw 完成，分数即时入账；之后 discardPhoto 只腾胶卷格，
+// 不返还分数、也不回退 foundFlaws —— 删掉证据照片不影响已认定的错误。
+function photographFault(faultId) {
+  if (state.foundFlaws.indexOf(faultId) >= 0) return { ok: false, already: true };
+  const lv = getLevel();
+  if (lv && state.photos.length >= getPhotoMax(lv)) return { ok: false, reason: 'full' };
+  state.photos.push({ faultId, t: Date.now() });
+  const r = confirmFlaw(faultId);
+  return { ok: true, already: false, score: r.score, found: faultId };
+}
+
+// 拍到无关内容 → 废片：同样占一格胶卷
+function takeJunkPhoto(title) {
+  const lv = getLevel();
+  if (lv && state.photos.length >= getPhotoMax(lv)) return { ok: false, reason: 'full' };
+  state.photos.push({ faultId: null, title: String(title || '店内随拍'), t: Date.now() });
+  return { ok: true };
+}
+
+// 删照片腾胶卷格。语义：不返还已得分（见 photographFault 注释），
+// 也不回退 foundFlaws —— 腾格后已找到的错误点仍是 already 状态。
+function discardPhoto(index) {
+  if (index < 0 || index >= state.photos.length) return { ok: false };
+  state.photos.splice(index, 1);
+  return { ok: true, photos: state.photos.slice() };
 }
 
 /* =====================================================================
@@ -472,6 +510,10 @@ module.exports = {
   tapZone,
   visibleFaults,
   confirmFlaw,
+  getPhotoMax,
+  photographFault,
+  takeJunkPhoto,
+  discardPhoto,
   selectLeft,
   selectRight,
   allConnected,

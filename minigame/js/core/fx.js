@@ -11,6 +11,7 @@
  *   fx.floater(x, y, '+1')      飘字
  *   fx.flash() / fx.shake()     红闪 / 屏震
  *   fx.say('文本')              手动推一条弹幕
+ *   fx.transition(cb)           全屏转场（右滑入盖满 → 调 cb → 左滑出）
  *   fx.setDanmakuPool([...])    设置本关弹幕文案池
  *   fx.clear()                  切关/重开时清空
  * ===================================================================== */
@@ -43,6 +44,8 @@ const PUSH_JITTER = 600;      // ±600 随机
 const FLASH_DUR = 450;        // 红闪时长 ms
 const SHAKE_DUR = 450;        // 屏震时长 ms
 const DANMAKU_LANES = 4;
+const TRANS_IN = 260;         // 转场滑入时长 ms（盖满）
+const TRANS_TOTAL = 520;      // 转场总时长 ms（滑入+滑出）
 
 const fx = {
   particles: [],
@@ -53,6 +56,8 @@ const fx = {
   flashT0: -1,
   shakeT0: -1,
   shakeMag: 0,
+  _trans: null,      // 全屏转场 {t0, cb, fired}
+  _now: 0,           // fx.update 最近一次 now（转场计时基准）
 
   /* ---------- 事件 API ---------- */
   // 答对/敲锣：金纸礼花
@@ -124,6 +129,14 @@ const fx = {
     gfx.pushDanmaku(this.dm, text, Date.now(), { areaH: this._area().h });
   },
 
+  // 全屏转场：0-260ms 深色渐变遮罩从右滑入盖满 → 盖满瞬间调 cb() 一次
+  // → 260-520ms 向左滑出。转场进行中再次调用被忽略；计时用 fx.update 的
+  // now；不 require router（cb 由场景闭包传入，内部自行 switchScene）。
+  transition(cb) {
+    if (this._trans) return;
+    this._trans = { t0: this._now || Date.now(), cb: (typeof cb === 'function' ? cb : null), fired: false };
+  },
+
   // 设置本关弹幕文案池（空数组则回退内置通用池）
   setDanmakuPool(lines) {
     this.pool = (lines && lines.length) ? lines.slice() : DEFAULT_POOL.slice();
@@ -137,10 +150,12 @@ const fx = {
     this.flashT0 = -1;
     this.shakeT0 = -1;
     this.nextPush = 0;
+    this._trans = null;
   },
 
   /* ---------- 帧驱动 ---------- */
   update(dt, now) {
+    this._now = now;
     // 弹幕自动推送：首次给个短预热，之后 2200ms ± 600
     if (!this.nextPush) this.nextPush = now + 700;
     if (now >= this.nextPush && this.pool.length) {
@@ -148,6 +163,16 @@ const fx = {
       this._ensureDm();
       gfx.pushDanmaku(this.dm, text, now, { areaH: this._area().h });
       this.nextPush = now + PUSH_INTERVAL + (Math.random() * 2 - 1) * PUSH_JITTER;
+    }
+    // 全屏转场推进：盖满瞬间（260ms）触发一次 cb，520ms 收尾
+    if (this._trans) {
+      const el = now - this._trans.t0;
+      if (!this._trans.fired && el >= TRANS_IN) {
+        this._trans.fired = true;
+        const cb = this._trans.cb;
+        if (cb) { try { cb(); } catch (e) { /* 转场 cb 异常不阻塞主循环 */ } }
+      }
+      if (el >= TRANS_TOTAL) this._trans = null;
     }
   },
 
@@ -167,6 +192,21 @@ const fx = {
       const alpha = 1 - (now - this.flashT0) / FLASH_DUR;
       gfx.drawFlash(ctx, alpha); // alpha<=0 时 drawFlash 自动忽略
       if (alpha <= 0) this.flashT0 = -1;
+    }
+    // 全屏转场遮罩（最上层：0-260ms 从右滑入盖满 → 260-520ms 向左滑出）
+    if (this._trans) {
+      const W = layout.LOGICAL_W || 750;
+      const H = layout.LOGICAL_H || 1334;
+      const el = now - this._trans.t0;
+      const x = el < TRANS_IN
+        ? W - gfx.easeInOutQuad(el / TRANS_IN) * W
+        : -gfx.easeInOutQuad((el - TRANS_IN) / TRANS_IN) * W;
+      const g = ctx.createLinearGradient(x, 0, x + W, 0);
+      g.addColorStop(0, '#14142a');
+      g.addColorStop(0.5, '#0b0b18');
+      g.addColorStop(1, '#14142a');
+      ctx.fillStyle = g;
+      ctx.fillRect(x, 0, W + 1, H);
     }
   },
 

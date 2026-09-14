@@ -16,6 +16,7 @@
  *  10. 复活 revive（回 failedAt 阶段 +2 心，每关一次）
  *  11. 环视线索联动（clueGlowFaults）
  *  12. 成就 / 图鉴 / 侦探币（onComplete / addCoins / cards）
+ *  13. 拍照取证（photographFault/takeJunkPhoto/discardPhoto/photoMax）
  * ===================================================================== */
 const assert = require('assert');
 // 小游戏是当前开发重心：校验 minigame 侧的状态机（与 miniprogram 侧同构）
@@ -173,7 +174,7 @@ ok('零动作 → loss=140 / 最低成就 / shareText 插值');
 
 /* ---------- 6. 小游戏场景接口存在性 ---------- */
 console.log('\n[6] 小游戏场景接口');
-const SCENE_NAMES = ['select', 'ask', 'find', 'link', 'rescue', 'result', 'fail', 'collection'];
+const SCENE_NAMES = ['select', 'ask', 'photo', 'link', 'rescue', 'result', 'fail', 'collection'];
 for (const name of SCENE_NAMES) {
   const scene = require(`../minigame/js/scenes/${name}.js`);
   assert(typeof scene.render === 'function', `${name} 缺少 render(ctx)`);
@@ -286,5 +287,74 @@ assert(achieve.cards().find(c => c.id === 'milk-tea').unlocked, '图鉴收录 mi
 assert(achieve.isUnlocked('first-clear'), 'first-clear 已解锁');
 assert(achieve.stats().totalSaved >= report.recoveredTotal, '累计止损入账');
 ok('成就/图鉴/侦探币：入账与新解锁正确（' + fresh.join('、') + '）');
+
+/* ---------- 13. 拍照取证 ---------- */
+console.log('\n[13] 拍照取证（photographFault / takeJunkPhoto / discardPhoto）');
+game.start('milk-tea');
+// photoMax 默认 = 错误点数 3 + 1 = 4
+assert.strictEqual(game.getPhotoMax(mt), 4, '默认 photoMax = 3 错 + 1 = 4');
+assert.strictEqual(game.getStateView().photoMax, 4, '视图带 photoMax');
+assert.deepStrictEqual(game.getStateView().photos, [], 'start 后 photos 为空');
+// 拍到错误点 = 确认该错误（+1 分）
+let pr = game.photographFault('rent');
+assert.strictEqual(pr.ok, true, '拍 rent 应成功');
+assert.strictEqual(pr.already, false);
+assert.strictEqual(pr.score, 1, '拍错误点 +1 分');
+assert.strictEqual(pr.found, 'rent');
+assert(game.getStateView().foundFlaws.indexOf('rent') >= 0, 'foundFlaws 含 rent');
+assert.strictEqual(game.state.photos.length, 1, 'photos 1 张');
+assert.strictEqual(game.state.photos[0].faultId, 'rent', '照片记录 faultId');
+// 重复拍同一错误：already，不消耗胶卷
+pr = game.photographFault('rent');
+assert.strictEqual(pr.ok, false, '重复拍应失败');
+assert.strictEqual(pr.already, true, '标记 already');
+assert.strictEqual(pr.reason, undefined, 'already 非胶卷满');
+assert.strictEqual(game.state.photos.length, 1, '重复不消耗胶卷');
+assert.strictEqual(game.state.score, 1, '重复不计分');
+// 拍满胶卷：rent 1 张 + 废片 3 张 = 4 格
+assert.strictEqual(game.takeJunkPhoto('一堆纸箱').ok, true);
+assert.strictEqual(game.takeJunkPhoto('门口地毯').ok, true);
+assert.strictEqual(game.takeJunkPhoto('绿植').ok, true);
+assert.strictEqual(game.state.photos.length, 4, 'photos 满 4 格');
+// 胶卷满：废片与新错误都拍不了
+pr = game.takeJunkPhoto('天花板');
+assert.deepStrictEqual(pr, { ok: false, reason: 'full' }, '胶卷满废片拒拍');
+pr = game.photographFault('food');
+assert.deepStrictEqual(pr, { ok: false, reason: 'full' }, '胶卷满拍不到新错误');
+assert.strictEqual(game.state.score, 1, 'full 拒拍不计分');
+assert.strictEqual(game.state.photos.length, 4, 'full 拒拍不占格');
+// 删一张废片腾格 → 可拍新错误
+pr = game.discardPhoto(1);
+assert.strictEqual(pr.ok, true, '删废片应成功');
+assert.strictEqual(pr.photos.length, 3, '返回剩余照片');
+assert.strictEqual(game.state.photos.length, 3, '胶卷腾出 1 格');
+pr = game.photographFault('food');
+assert.strictEqual(pr.ok, true, '腾格后可拍新错误');
+assert.strictEqual(pr.score, 2, '拍 food 再 +1 分');
+// 越界删除
+assert.deepStrictEqual(game.discardPhoto(99), { ok: false }, '越界删除失败');
+assert.deepStrictEqual(game.discardPhoto(-1), { ok: false }, '负数下标失败');
+// 再次拍满 4 格（rent/地毯/绿植/food）
+assert.strictEqual(game.state.photos.length, 4, '再次拍满 4 格');
+// discard 不返还 found 状态：删掉 rent 的照片后重拍 rent → already（分数不回退）
+pr = game.discardPhoto(0);
+assert.strictEqual(pr.ok, true, '删 rent 的照片成功');
+pr = game.photographFault('rent');
+assert.strictEqual(pr.ok, false, 'rent 仍已找到，重拍应失败');
+assert.strictEqual(pr.already, true, 'discard 不回退 found 状态');
+assert.strictEqual(game.state.photos.length, 3, 'already 重拍不消耗胶卷');
+assert.strictEqual(game.state.score, 2, '分数不因删照片回退');
+// 全拍光：foundFlaws 与 faultId 非 null 的照片一一对应；废片默认标题
+game.start('milk-tea');
+game.photographFault('rent');
+game.photographFault('food');
+game.photographFault('labor');
+game.takeJunkPhoto();
+assert.strictEqual(game.state.photos[3].faultId, null, '废片 faultId 为 null');
+assert.strictEqual(game.state.photos[3].title, '店内随拍', '废片默认标题');
+const scored = game.state.photos.filter(p => p.faultId !== null);
+assert.strictEqual(scored.length, game.getStateView().foundFlaws.length, '非废片数 = foundFlaws 数');
+assert.strictEqual(game.state.score, 3, '三错各 +1 分');
+ok('拍照取证：photoMax/计分/already/full/腾格重拍语义正确');
 
 console.log(`\n✅ sanity-game.js 逻辑校验通过（${pass} 项）\n`);
