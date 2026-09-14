@@ -61,6 +61,7 @@ module.exports = {
   _emitTimer: null,
   _now: 0,
   _lastStep: -1,
+  _emitted: null,
   _stepT0: 0,
   _lay: null,
 
@@ -82,6 +83,7 @@ module.exports = {
     this._moodT0 = 0;
     this._wrongAlt = 0;
     this._lastStep = -1;
+    this._emitted = {};
     this._stepT0 = 0;
     const lv = store.getLevel();
     if (!lv) { router.switchScene('select'); return; }
@@ -110,6 +112,7 @@ module.exports = {
     if (step === 1) { this.msgs = []; this._audCount = 0; }
     if (step >= 1 && step <= 3) {
       this.pendingQi = step - 1;
+      this._emitted = {}; // 每题独立防重（消息流跨题保留历史，不能靠查重判断）
       this._emitTimer = setTimeout(() => this._tryEmit(), this.msgs.length ? 400 : BRAG_FIRST);
     } else if (step >= 6) {
       this._goPhoto();
@@ -133,7 +136,8 @@ module.exports = {
     if (!lv) return;
     const qi = this.pendingQi;
     if (qi === undefined || qi > 2) return;
-    if (this.msgs.some(m => m.kind === 'brag' && m.qi === qi)) { this.pendingQi = qi + 1; return; } // 防重
+    if (this._emitted && this._emitted[qi]) { this.pendingQi = qi + 1; return; } // 防重（仅防同题重复发射）
+    if (this._emitted) this._emitted[qi] = true;
     const q = lv.interview.questions[qi];
     if (!q) return;
     this._pushMsg({ kind: 'brag', qi, who: `${lv.interview.owner.emoji} ${lv.interview.owner.name}`, text: q.vague });
@@ -162,7 +166,10 @@ module.exports = {
         if (c.active && gfx.hit(x, y, c.rect)) { this._onCard(c.i); return; }
       }
       for (const b of this.bubbleRects) {
-        if (gfx.hit(x, y, b)) { this._onChallenge(b.qi); return; }
+        if (!gfx.hit(x, y, b)) continue;
+        if (b.current) { this._onChallenge(b.qi); return; }
+        this.toast = { text: '先质疑最新一条 👇', until: Date.now() + 1300 };
+        return;
       }
     }
     for (const b of this.buttons) {
@@ -450,20 +457,21 @@ module.exports = {
     const challengeable = m.kind === 'brag' && !m.resolved && !m.challenged
       && m.qi === this.pendingQi - 1 && !this.challenge
       && store.state.askStep >= 1 && store.state.askStep <= 3;
+    // 所有未收卷的店主气泡都进命中表：当前条直接质疑，旧条给引导提示
+    if (m.kind === 'brag' && !m.resolved && !m.challenged) {
+      this.bubbleRects.push({ x: MX, y: top, w: CW, h: m.h, qi: m.qi, current: challengeable });
+    }
     if (challengeable) {
       const pulse = 0.45 + 0.4 * Math.sin(now * 0.006);
       ctx.save();
       ctx.globalAlpha = pulse;
       gfx.strokeRound(ctx, MX, top, CW, m.h, 18, C.gold, 3);
       ctx.restore();
-      if (m.qi === 0) {
-        const label = '⚡ 点这条质疑';
-        const lw = gfx.textWidth(ctx, label, 18, true) + 20;
-        gfx.fillRound(ctx, MX + CW - lw - 10, top + 8, lw, 26, 13, 'rgba(245,197,24,0.16)');
-        gfx.strokeRound(ctx, MX + CW - lw - 10, top + 8, lw, 26, 13, 'rgba(245,197,24,0.7)', 1.5);
-        gfx.drawText(ctx, label, MX + CW - 20, top + 21, { size: 18, bold: true, color: C.gold, align: 'center', baseline: 'middle' });
-      }
-      this.bubbleRects.push({ x: MX, y: top, w: CW, h: m.h, qi: m.qi });
+      const label = '⚡ 点这条质疑';
+      const lw = gfx.textWidth(ctx, label, 18, true) + 20;
+      gfx.fillRound(ctx, MX + CW - lw - 10, top + 8, lw, 26, 13, 'rgba(245,197,24,0.16)');
+      gfx.strokeRound(ctx, MX + CW - lw - 10, top + 8, lw, 26, 13, 'rgba(245,197,24,0.7)', 1.5);
+      gfx.drawText(ctx, label, MX + CW - 20, top + 21, { size: 18, bold: true, color: C.gold, align: 'center', baseline: 'middle' });
     }
     if (m.challenged && !m.resolved) {
       gfx.strokeRound(ctx, MX, top, CW, m.h, 18, C.amber, 2);
@@ -499,7 +507,7 @@ module.exports = {
     const fb = this.feedback;
     if (!fb) return;
     const alpha = gfx.clamp((now - fb.t0) / 200, 0, 1);
-    const text = fb.type === 'retry' ? `${fb.text} —— 🤔 再想想！` : fb.text;
+    const text = fb.type === 'retry' ? `${fb.text} —— 🤔 再想想，点另一张卡！` : fb.text;
     const color = fb.type === 'ok' ? C.green : fb.type === 'retry' ? C.amber : C.lossText;
     let size = 22;
     while (gfx.textWidth(ctx, text, size, true) > CW - 60 && size > 16) size--;

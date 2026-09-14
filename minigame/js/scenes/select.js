@@ -91,8 +91,19 @@ module.exports = {
       }
       y += 6;
     }
-    this.contentH = y;
+    this.contentH = y + 12; // 底部留边，末卡不贴按钮
     this.maxScroll = Math.max(0, this.contentH - this.contentRect.h);
+
+    // 首次进入提示可滚动（一次性，本地记录）
+    if (this.maxScroll > 60 && !this._scrollHintDone) {
+      this._scrollHintDone = true;
+      let seen = false;
+      try { seen = !!(typeof wx !== 'undefined' && wx.getStorageSync && wx.getStorageSync('btb_scroll_hint')); } catch (e) { /* 忽略 */ }
+      if (!seen) {
+        this.showToast('👇 按住下滑，查看全部关卡');
+        try { if (typeof wx !== 'undefined' && wx.setStorageSync) wx.setStorageSync('btb_scroll_hint', 1); } catch (e) { /* 忽略 */ }
+      }
+    }
 
     const fy = layout.LOGICAL_H - layout.bottomInset - 88;
     this.collRect = { x: MX, y: fy, w: 436, h: 76, label: '🏆 成就图鉴', theme: 'green', enabled: true };
@@ -187,12 +198,13 @@ module.exports = {
     const sy = this.scrollY;
     for (const c of this.cards) {
       c.rect = null;
-      const ry = c.y - sy;
+      const ry = this.contentRect.y + c.y - sy; // c.y 为内容相对坐标，需叠内容区顶
       if (ry + c.h < this.contentRect.y || ry > this.contentRect.y + this.contentRect.h) continue;
       if (c.type === 'chapter') this.drawChapterHead(ctx, c, ry);
       else this.drawLevelCard(ctx, c, ry);
     }
     ctx.restore();
+    this._drawScrollHints(ctx, now);
 
     gfx.drawButton(ctx, this.collRect);
     gfx.drawButton(ctx, this.devRect);
@@ -200,6 +212,35 @@ module.exports = {
       size: 18, color: 'rgba(154,160,184,0.55)', align: 'center', baseline: 'bottom',
     });
     gfx.drawToast(ctx, this.toast, now);
+  },
+
+  /* ---------- 滚动可发现性：滚动条 + 顶部淡出 + 底部呼吸箭头 ---------- */
+  _drawScrollHints(ctx, now) {
+    const r = this.contentRect;
+    if (this.maxScroll > 0) {
+      const trackH = r.h - 24;
+      const thumbH = Math.max(48, trackH * (r.h / this.contentH));
+      const ty = r.y + 12 + (trackH - thumbH) * (this.scrollY / this.maxScroll);
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      gfx.fillRound(ctx, 736, ty, 6, thumbH, 3, '#ffffff');
+      ctx.restore();
+      if (this.scrollY < this.maxScroll - 8) {
+        ctx.save();
+        ctx.globalAlpha = 0.4 + 0.3 * Math.sin(now * 0.005);
+        gfx.drawText(ctx, '⌄ 更多关卡', 375, r.y + r.h - 16, {
+          size: 20, bold: true, color: C.muted, align: 'center', baseline: 'middle',
+        });
+        ctx.restore();
+      }
+    }
+    if (this.scrollY > 4) {
+      const g = ctx.createLinearGradient(0, r.y, 0, r.y + 36);
+      g.addColorStop(0, 'rgba(26,26,46,0.9)');
+      g.addColorStop(1, 'rgba(26,26,46,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(r.x, r.y, r.w, 36);
+    }
   },
 
   drawHeader(ctx) {
